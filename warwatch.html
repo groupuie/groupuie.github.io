@@ -359,9 +359,7 @@
   </div>
   <div class="api-group">
     <label>SATELLITE</label>
-    <input type="password" id="sat-key" placeholder="Mapbox Access Token…" autocomplete="off" />
-    <button class="btn-xs" onclick="applyKey('sat')">套用</button>
-    <span class="api-stat" id="sat-status">未連線</span>
+    <span class="api-stat on">ESRI FREE</span>
   </div>
 </div>
 
@@ -492,8 +490,8 @@ function nowUTC() {
 }
 
 // ─── AISstream WebSocket ──────────────────────────────────────────────────────
-const liveShips = new Map(); // MMSI -> ship data
-const liveLayer = L.layerGroup().addTo(map);
+const liveShips = new Map();
+let liveLayer; // initialized after map
 let aisWs = null;
 let aisReconnectTimer = null;
 
@@ -611,18 +609,16 @@ setInterval(() => {
 const map = L.map('map', { center:[20,10], zoom:2, zoomControl:true, attributionControl:false });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18 }).addTo(map);
 
-let satLayer = null;
-function buildSatLayer() {
-  if (satLayer) map.removeLayer(satLayer);
-  satLayer = L.tileLayer(
-    `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${apiKeys.sat}`,
-    { maxZoom:18, tileSize:512, zoomOffset:-1 }
-  );
-}
+liveLayer = L.layerGroup().addTo(map);
+
+const esriSat = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { maxZoom:18, attribution:'' }
+);
+let satOn = false;
 function toggleSat(btn) {
-  if (!satLayer) { alert('請先輸入 Mapbox Access Token'); return; }
-  map.hasLayer(satLayer) ? (map.removeLayer(satLayer), btn.classList.remove('active'))
-                         : (satLayer.addTo(map), btn.classList.add('active'));
+  satOn ? (map.removeLayer(esriSat), satOn=false, btn.classList.remove('active'))
+        : (esriSat.addTo(map), satOn=true, btn.classList.add('active'));
 }
 
 // ─── Layer groups ─────────────────────────────────────────────────────────────
@@ -1128,6 +1124,35 @@ function simShips() {
     shipMkrs[s.id]?.setPopupContent(shipPopup(s));
   });
 }
+
+// ─── GDELT Project live news ──────────────────────────────────────────────────
+const GDELT_QUERIES = [
+  { q:'Ukraine Russia war',      region:'EUROPE'  },
+  { q:'Gaza Israel Hamas war',   region:'MIDEAST' },
+  { q:'Red Sea Houthi attack',   region:'MIDEAST' },
+  { q:'Taiwan Strait China military', region:'ASIA' },
+  { q:'Sudan conflict RSF',      region:'AFRICA'  },
+  { q:'Myanmar civil war',       region:'ASIA'    },
+];
+let gdeltQIdx = 0;
+
+async function fetchGDELT() {
+  const { q, region } = GDELT_QUERIES[gdeltQIdx % GDELT_QUERIES.length];
+  gdeltQIdx++;
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=5&sort=datedesc&format=json`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    (data.articles || []).slice(0, 3).forEach(a => {
+      const title = a.title?.slice(0, 80) || '無標題';
+      const domain = a.domain || 'GDELT';
+      addFeed(nowUTC(), domain.toUpperCase(), 'med', region, `[OSINT] ${title}`);
+    });
+  } catch(e) {}
+}
+fetchGDELT();
+setInterval(fetchGDELT, 60000);
 
 // ─── Live feed ticker ─────────────────────────────────────────────────────────
 const liveEvents = [
