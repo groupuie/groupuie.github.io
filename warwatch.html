@@ -316,7 +316,32 @@
     <span class="gti-val" id="gti-val">78</span>
     <span style="font-size:9px;color:var(--danger);letter-spacing:1px;">/ 100</span>
   </div>
-  <div class="utc" id="clock">--:--:-- UTC</div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <select id="tz-select" onchange="changeTZ()"
+      style="background:#080c14;border:1px solid var(--border);color:var(--muted);
+             font-family:'Courier New',monospace;font-size:10px;letter-spacing:1px;
+             padding:3px 6px;outline:none;cursor:pointer;">
+      <option value="UTC">UTC</option>
+      <option value="America/New_York">EST/EDT (紐約)</option>
+      <option value="America/Los_Angeles">PST/PDT (洛杉磯)</option>
+      <option value="America/Chicago">CST/CDT (芝加哥)</option>
+      <option value="Europe/London">GMT/BST (倫敦)</option>
+      <option value="Europe/Paris">CET/CEST (巴黎)</option>
+      <option value="Europe/Kiev">EET (基輔)</option>
+      <option value="Europe/Moscow">MSK (莫斯科)</option>
+      <option value="Asia/Dubai">GST (杜拜)</option>
+      <option value="Asia/Karachi">PKT (卡拉奇)</option>
+      <option value="Asia/Kolkata">IST (印度)</option>
+      <option value="Asia/Bangkok">ICT (曼谷)</option>
+      <option value="Asia/Shanghai">CST (北京/上海)</option>
+      <option value="Asia/Taipei">CST (台北)</option>
+      <option value="Asia/Tokyo">JST (東京)</option>
+      <option value="Asia/Seoul">KST (首爾)</option>
+      <option value="Australia/Sydney">AEST (雪梨)</option>
+      <option value="Pacific/Auckland">NZST (奧克蘭)</option>
+    </select>
+    <div class="utc" id="clock">--:--:-- UTC</div>
+  </div>
 </header>
 
 <div id="api-banner">
@@ -424,11 +449,22 @@
 
 <script>
 // ─── Clock ────────────────────────────────────────────────────────────────────
+let currentTZ = 'UTC';
+function changeTZ() {
+  currentTZ = document.getElementById('tz-select').value;
+  tick();
+}
 function tick() {
   const n = new Date();
-  const pad = v => String(v).padStart(2,'0');
-  document.getElementById('clock').textContent =
-    `${pad(n.getUTCHours())}:${pad(n.getUTCMinutes())}:${pad(n.getUTCSeconds())} UTC`;
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: currentTZ,
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const tzLabel = currentTZ === 'UTC' ? 'UTC'
+    : new Intl.DateTimeFormat('en', { timeZone: currentTZ, timeZoneName: 'short' })
+        .formatToParts(n).find(p => p.type === 'timeZoneName')?.value || currentTZ;
+  document.getElementById('clock').textContent = `${fmt.format(n)} ${tzLabel}`;
 }
 setInterval(tick, 1000); tick();
 
