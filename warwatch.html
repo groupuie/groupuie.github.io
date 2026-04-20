@@ -3,25 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WARWATCH — 戰區情報系統</title>
+  <title>WARWATCH — 全球戰區情報系統</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
-      --bg: #0a0d12;
-      --panel: #0f1318;
-      --border: #1e2a38;
+      --bg: #07090d;
+      --panel: #0c0f14;
+      --border: #1a2535;
       --accent: #00c8ff;
       --danger: #ff3b3b;
       --warn: #ffaa00;
       --ok: #00e676;
-      --text: #c9d8e8;
-      --muted: #4a6070;
-      --header: #060a0f;
+      --text: #bfd0e0;
+      --muted: #3d5268;
+      --header: #050709;
+      --war: #ff2222;
+      --conflict: #ff7700;
+      --tension: #ffcc00;
+      --monitor: #44aaff;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       background: var(--bg);
       color: var(--text);
@@ -36,941 +38,967 @@
     /* ── Header ── */
     header {
       background: var(--header);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 16px;
+      border-bottom: 2px solid var(--border);
+      padding: 7px 14px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       flex-shrink: 0;
       z-index: 1000;
     }
-
     .logo {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
-      letter-spacing: 4px;
+      letter-spacing: 5px;
       color: var(--accent);
-      text-shadow: 0 0 12px var(--accent);
+      text-shadow: 0 0 16px rgba(0,200,255,0.5);
     }
-
-    .logo span { color: var(--danger); }
-
-    .header-status {
-      display: flex;
-      gap: 20px;
-      margin-left: auto;
-      align-items: center;
+    .logo span { color: var(--danger); text-shadow: 0 0 16px rgba(255,50,50,0.6); }
+    .logo sub { font-size: 9px; letter-spacing: 2px; color: var(--muted); vertical-align: bottom; }
+    .header-pills { display: flex; gap: 14px; align-items: center; }
+    .pill {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 10px; letter-spacing: 1px; color: var(--muted);
+      border: 1px solid var(--border); padding: 2px 8px;
     }
-
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      letter-spacing: 1px;
-      color: var(--muted);
-    }
-
     .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--ok);
-      box-shadow: 0 0 6px var(--ok);
-      animation: pulse 2s infinite;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok); box-shadow: 0 0 5px var(--ok);
+      animation: blink 2s infinite;
+    }
+    .dot.r { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
+    .dot.y { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+    .utc { font-size: 11px; color: var(--accent); letter-spacing: 2px; margin-left: auto; }
+    .gti-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; letter-spacing: 1px;
+    }
+    .gti-val {
+      font-size: 16px; font-weight: 700; color: var(--danger);
+      text-shadow: 0 0 10px rgba(255,50,50,0.7);
     }
 
-    .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
-    .dot.danger { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .utc-clock {
-      font-size: 12px;
-      color: var(--accent);
-      letter-spacing: 2px;
-    }
-
-    /* ── API Key Banner ── */
+    /* ── API Banner ── */
     #api-banner {
-      background: #0d1520;
+      background: #080c12;
       border-bottom: 1px solid var(--border);
-      padding: 8px 16px;
+      padding: 5px 14px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-shrink: 0;
+      flex-wrap: wrap;
     }
-
-    #api-banner label {
-      font-size: 11px;
-      letter-spacing: 1px;
-      color: var(--muted);
-      white-space: nowrap;
+    #api-banner > label {
+      font-size: 10px; letter-spacing: 2px; color: var(--muted);
+      white-space: nowrap; border-right: 1px solid var(--border); padding-right: 10px;
     }
-
-    .api-input-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .api-group { display: flex; align-items: center; gap: 6px; }
+    .api-group label { font-size: 9px; letter-spacing: 1px; color: var(--muted); white-space: nowrap; }
+    .api-group input {
+      background: #050810; border: 1px solid var(--border);
+      color: var(--text); font-family: inherit; font-size: 11px;
+      padding: 3px 8px; width: 200px; outline: none;
     }
-
-    .api-input-group input {
-      background: #0a1018;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      padding: 4px 10px;
-      width: 260px;
-      outline: none;
-      transition: border-color 0.2s;
+    .api-group input:focus { border-color: var(--accent); }
+    .api-group input::placeholder { color: var(--muted); }
+    .btn-xs {
+      background: transparent; border: 1px solid var(--accent); color: var(--accent);
+      font-family: inherit; font-size: 10px; letter-spacing: 1px;
+      padding: 3px 10px; cursor: pointer;
     }
-
-    .api-input-group input:focus { border-color: var(--accent); }
-    .api-input-group input::placeholder { color: var(--muted); }
-
-    .btn-sm {
-      background: transparent;
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      letter-spacing: 1px;
-      padding: 4px 12px;
-      cursor: pointer;
-      transition: background 0.2s;
+    .btn-xs:hover { background: rgba(0,200,255,.1); }
+    .api-stat {
+      font-size: 9px; letter-spacing: 1px; padding: 2px 6px;
+      border: 1px solid var(--muted); color: var(--muted);
     }
+    .api-stat.on { border-color: var(--ok); color: var(--ok); }
 
-    .btn-sm:hover { background: rgba(0,200,255,0.1); }
-
-    .api-status {
-      font-size: 11px;
-      letter-spacing: 1px;
-      padding: 3px 8px;
-      border: 1px solid var(--muted);
-      color: var(--muted);
-    }
-
-    .api-status.connected {
-      border-color: var(--ok);
-      color: var(--ok);
-    }
-
-    /* ── Main Layout ── */
+    /* ── Layout ── */
     .main {
       display: grid;
-      grid-template-columns: 280px 1fr 300px;
+      grid-template-columns: 300px 1fr 310px;
       flex: 1;
       overflow: hidden;
     }
-
-    /* ── Sidebar common ── */
     .sidebar {
       background: var(--panel);
       border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      display: flex; flex-direction: column; overflow: hidden;
     }
-
-    .sidebar.right {
-      border-right: none;
-      border-left: 1px solid var(--border);
-    }
-
-    .panel-header {
+    .sidebar.right { border-right: none; border-left: 1px solid var(--border); }
+    .phead {
       background: var(--header);
       border-bottom: 1px solid var(--border);
-      padding: 8px 12px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--accent);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      padding: 7px 11px;
+      font-size: 10px; letter-spacing: 2px; color: var(--accent);
+      display: flex; align-items: center; gap: 6px;
       flex-shrink: 0;
     }
-
-    .panel-header .count {
+    .phead .cnt {
       margin-left: auto;
-      background: rgba(0,200,255,0.1);
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      font-size: 10px;
-      padding: 1px 6px;
+      background: rgba(0,200,255,.08); border: 1px solid var(--accent);
+      color: var(--accent); font-size: 9px; padding: 1px 5px;
     }
+    .pbody { flex: 1; overflow-y: auto; }
+    .pbody::-webkit-scrollbar { width: 3px; }
+    .pbody::-webkit-scrollbar-track { background: var(--bg); }
+    .pbody::-webkit-scrollbar-thumb { background: var(--border); }
 
-    .panel-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
+    /* ── Region quick-jump ── */
+    .region-bar {
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 3px; flex-wrap: wrap;
+      flex-shrink: 0;
     }
+    .rbtn {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); font-family: inherit; font-size: 9px;
+      letter-spacing: 1px; padding: 2px 7px; cursor: pointer;
+      transition: all .15s;
+    }
+    .rbtn:hover, .rbtn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,200,255,.07); }
 
-    .panel-body::-webkit-scrollbar { width: 4px; }
-    .panel-body::-webkit-scrollbar-track { background: var(--bg); }
-    .panel-body::-webkit-scrollbar-thumb { background: var(--border); }
-
-    /* ── Ship cards ── */
-    .ship-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
+    /* ── Conflict cards ── */
+    .conflict-card {
+      border-bottom: 1px solid var(--border);
       border-left: 3px solid var(--muted);
       padding: 8px 10px;
-      margin-bottom: 6px;
       cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
+      transition: background .15s, border-color .15s;
     }
-
-    .ship-card:hover { background: #0d1520; border-left-color: var(--accent); }
-    .ship-card.selected { border-left-color: var(--accent); background: #0d1520; }
-    .ship-card.hostile { border-left-color: var(--danger); }
-    .ship-card.unknown { border-left-color: var(--warn); }
-
-    .ship-name {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-    }
-
-    .ship-meta {
-      font-size: 10px;
-      color: var(--muted);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .ship-meta span { display: flex; justify-content: space-between; }
-
-    .tag {
-      display: inline-block;
-      font-size: 9px;
-      letter-spacing: 1px;
-      padding: 1px 5px;
+    .conflict-card:hover { background: #0b1018; }
+    .conflict-card.active { background: #0b1018; border-left-color: var(--accent); }
+    .conflict-card.war  { border-left-color: var(--war); }
+    .conflict-card.conflict { border-left-color: var(--conflict); }
+    .conflict-card.tension  { border-left-color: var(--tension); }
+    .conflict-card.monitor  { border-left-color: var(--monitor); }
+    .c-top { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .c-flag { font-size: 14px; }
+    .c-name { font-size: 11px; font-weight: 700; letter-spacing: 1px; flex: 1; }
+    .c-badge {
+      font-size: 8px; letter-spacing: 1px; padding: 1px 5px;
       border: 1px solid currentColor;
-      margin-right: 4px;
     }
+    .c-badge.war     { color: var(--war); }
+    .c-badge.conflict{ color: var(--conflict); }
+    .c-badge.tension { color: var(--tension); }
+    .c-badge.monitor { color: var(--monitor); }
+    .c-meta { font-size: 10px; color: var(--muted); line-height: 1.6; }
+    .c-meta b { color: var(--text); }
+    .c-intensity { margin-top: 5px; }
+    .c-bar-wrap { height: 3px; background: #0d1520; margin-top: 3px; }
+    .c-bar { height: 100%; }
 
-    .tag.friendly { color: var(--ok); }
-    .tag.hostile { color: var(--danger); }
-    .tag.unknown { color: var(--warn); }
-    .tag.neutral { color: var(--muted); }
+    /* ── Global stats strip ── */
+    .stats-strip {
+      display: flex; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .stat-cell {
+      flex: 1; padding: 6px 8px; text-align: center;
+      border-right: 1px solid var(--border);
+      font-size: 10px;
+    }
+    .stat-cell:last-child { border-right: none; }
+    .stat-cell .sv { font-size: 14px; font-weight: 700; display: block; }
+    .stat-cell .sk { color: var(--muted); font-size: 9px; letter-spacing: 1px; }
 
     /* ── Map ── */
-    #map {
-      flex: 1;
-      background: #0a0e14;
-    }
-
-    /* Leaflet dark override */
-    .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.75) saturate(0.6); }
-
+    #map { width: 100%; height: 100%; background: #050810; }
+    .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.65) saturate(0.5); }
     .leaflet-control-zoom a {
-      background: var(--panel) !important;
-      color: var(--accent) !important;
+      background: var(--panel) !important; color: var(--accent) !important;
       border-color: var(--border) !important;
     }
-
-    /* Custom map popup */
     .leaflet-popup-content-wrapper {
-      background: var(--panel);
-      border: 1px solid var(--accent);
-      border-radius: 0;
-      color: var(--text);
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
+      background: #0c111a; border: 1px solid var(--accent);
+      border-radius: 0; color: var(--text);
+      font-family: 'Courier New', monospace; font-size: 11px;
+      box-shadow: 0 0 20px rgba(0,200,255,.2);
+    }
+    .leaflet-popup-tip { background: var(--accent); }
+    .leaflet-tooltip {
+      background: rgba(5,8,16,.95) !important; border: 1px solid var(--border) !important;
+      color: var(--text) !important; font-family: inherit !important;
+      font-size: 10px !important; border-radius: 0 !important;
     }
 
-    .leaflet-popup-tip { background: var(--accent); }
+    /* ── Map overlay controls ── */
+    .map-ctrl {
+      position: absolute; top: 10px; left: 50%;
+      transform: translateX(-50%); z-index: 500;
+      display: flex; gap: 6px;
+    }
+    .mctrl {
+      background: rgba(5,7,9,.92); border: 1px solid var(--border);
+      color: var(--muted); font-family: inherit; font-size: 9px;
+      letter-spacing: 1px; padding: 4px 11px; cursor: pointer; transition: all .15s;
+    }
+    .mctrl.active { border-color: var(--accent); color: var(--accent); }
+    .mctrl:hover  { border-color: var(--accent); color: var(--accent); }
 
-    /* ── Intel Feed ── */
+    /* pulsing war zone rings */
+    @keyframes ripple {
+      0%   { transform: scale(1);   opacity: .7; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+    .zone-ring {
+      border-radius: 50%; position: absolute;
+      animation: ripple 2.5s ease-out infinite;
+    }
+
+    /* ── Intel feed ── */
     .feed-item {
       border-bottom: 1px solid var(--border);
-      padding: 8px 6px;
-      font-size: 11px;
-      line-height: 1.5;
+      padding: 7px 10px; font-size: 11px; line-height: 1.5;
+      cursor: pointer; transition: background .1s;
     }
-
-    .feed-item:last-child { border-bottom: none; }
-
-    .feed-time {
-      color: var(--muted);
-      font-size: 10px;
-      margin-bottom: 3px;
-      letter-spacing: 1px;
+    .feed-item:hover { background: #0b1018; }
+    .feed-head { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+    .feed-time { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+    .feed-region {
+      font-size: 9px; letter-spacing: 1px; padding: 1px 5px;
+      border: 1px solid var(--muted); color: var(--muted);
     }
+    .feed-src { font-size: 9px; color: var(--muted); margin-left: auto; }
+    .feed-txt { color: var(--text); }
+    .feed-txt.high { color: #ff5555; }
+    .feed-txt.med  { color: var(--warn); }
+    .feed-txt.low  { color: #aaccaa; }
 
-    .feed-source {
-      font-size: 10px;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
+    .filt-bar {
+      padding: 5px 8px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 3px; flex-wrap: wrap; flex-shrink: 0;
     }
-
-    .feed-text { color: var(--text); }
-
-    .feed-text.high { color: var(--danger); }
-    .feed-text.med { color: var(--warn); }
-    .feed-text.low { color: var(--ok); }
-
-    /* ── Filter bar ── */
-    .filter-bar {
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-      flex-shrink: 0;
+    .fbtn {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); font-family: inherit; font-size: 9px;
+      letter-spacing: 1px; padding: 2px 7px; cursor: pointer; transition: all .15s;
     }
+    .fbtn.on { border-color: var(--accent); color: var(--accent); background: rgba(0,200,255,.07); }
+    .fbtn.h.on { border-color: var(--danger); color: var(--danger); background: rgba(255,59,59,.07); }
+    .fbtn.m.on { border-color: var(--warn);   color: var(--warn);   background: rgba(255,170,0,.07); }
 
-    .filter-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-family: 'Courier New', monospace;
-      font-size: 10px;
-      letter-spacing: 1px;
-      padding: 3px 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,200,255,0.08); }
-    .filter-btn.hostile.active { border-color: var(--danger); color: var(--danger); background: rgba(255,59,59,0.08); }
-    .filter-btn.unknown.active { border-color: var(--warn); color: var(--warn); background: rgba(255,170,0,0.08); }
-
-    /* ── Map controls ── */
-    .map-controls {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 500;
-      display: flex;
-      gap: 8px;
-    }
-
-    .map-ctrl-btn {
-      background: rgba(10,13,18,0.9);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-family: 'Courier New', monospace;
-      font-size: 10px;
-      letter-spacing: 1px;
-      padding: 5px 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .map-ctrl-btn.active { border-color: var(--accent); color: var(--accent); }
-    .map-ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ── Detail panel (bottom of left sidebar) ── */
-    .detail-panel {
+    /* ── Detail drawer ── */
+    #detail-drawer {
       border-top: 1px solid var(--border);
-      flex-shrink: 0;
-      max-height: 180px;
-      overflow-y: auto;
+      flex-shrink: 0; max-height: 200px; overflow-y: auto;
     }
-
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 12px;
-      border-bottom: 1px solid #0d1520;
-      font-size: 11px;
+    .drow {
+      display: flex; justify-content: space-between;
+      padding: 3px 10px; border-bottom: 1px solid #0b1220; font-size: 10px;
     }
+    .drow .dk { color: var(--muted); letter-spacing: 1px; }
+    .drow .dv { color: var(--text); text-align: right; max-width: 60%; }
 
-    .detail-row .key { color: var(--muted); letter-spacing: 1px; }
-    .detail-row .val { color: var(--text); text-align: right; }
-
-    /* ── Search box ── */
-    .search-box {
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .search-box input {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      padding: 5px 8px;
-      outline: none;
-    }
-
-    .search-box input:focus { border-color: var(--accent); }
-
-    /* ── Threat meter ── */
-    .threat-meter {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .threat-label {
-      font-size: 10px;
-      letter-spacing: 2px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .threat-bar-wrap {
-      height: 6px;
-      background: #0d1520;
-      border: 1px solid var(--border);
-      overflow: hidden;
-    }
-
-    .threat-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--ok), var(--warn), var(--danger));
-      transition: width 1s;
-    }
-
-    .threat-value {
-      font-size: 11px;
-      color: var(--warn);
-      margin-top: 4px;
-      text-align: right;
-    }
-
-    /* Custom Leaflet icons */
-    .ship-icon {
-      background: none;
-      border: none;
-    }
-
-    /* Scanline overlay */
+    /* scanlines */
     body::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.03) 2px,
-        rgba(0,0,0,0.03) 4px
-      );
-      pointer-events: none;
-      z-index: 9999;
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);
+      pointer-events: none; z-index: 9999;
     }
   </style>
 </head>
 <body>
 
-<!-- Header -->
 <header>
-  <div class="logo">WAR<span>WATCH</span></div>
-  <div class="status-pill"><div class="dot"></div> SYSTEM ONLINE</div>
-  <div class="status-pill"><div class="dot warn"></div> THREAT ELEVATED</div>
-  <div class="header-status">
-    <div class="status-pill">AIS FEED: <strong style="color:var(--ok);margin-left:4px">LIVE</strong></div>
-    <div class="utc-clock" id="clock">-- UTC</div>
+  <div class="logo">WAR<span>WATCH</span> <sub>GLOBAL</sub></div>
+  <div class="header-pills">
+    <div class="pill"><div class="dot"></div>SYSTEM ONLINE</div>
+    <div class="pill"><div class="dot r"></div>WARTIME CONDITIONS ACTIVE</div>
+    <div class="pill"><div class="dot y"></div>16 ACTIVE THEATRES</div>
   </div>
+  <div class="gti-header" style="margin-left:auto;">
+    <span style="font-size:9px;letter-spacing:2px;color:var(--muted);">GLOBAL WAR INDEX</span>
+    <span class="gti-val" id="gti-val">78</span>
+    <span style="font-size:9px;color:var(--danger);letter-spacing:1px;">/ 100</span>
+  </div>
+  <div class="utc" id="clock">--:--:-- UTC</div>
 </header>
 
-<!-- API Key Banner -->
 <div id="api-banner">
   <label>API KEYS</label>
-
-  <div class="api-input-group">
-    <label style="color:var(--muted);font-size:10px;letter-spacing:1px;">AIS / VESSEL</label>
-    <input type="password" id="ais-key" placeholder="輸入 AIS API Key…" autocomplete="off" />
-    <button class="btn-sm" onclick="applyKey('ais')">套用</button>
-    <span class="api-status" id="ais-status">未連線</span>
+  <div class="api-group">
+    <label>AIS/VESSEL</label>
+    <input type="password" id="ais-key" placeholder="AIS API Key…" autocomplete="off" />
+    <button class="btn-xs" onclick="applyKey('ais')">套用</button>
+    <span class="api-stat" id="ais-status">未連線</span>
   </div>
-
-  <div class="api-input-group" style="margin-left:16px;">
-    <label style="color:var(--muted);font-size:10px;letter-spacing:1px;">情報來源</label>
-    <input type="password" id="intel-key" placeholder="輸入 Intelligence Feed API Key…" autocomplete="off" />
-    <button class="btn-sm" onclick="applyKey('intel')">套用</button>
-    <span class="api-status" id="intel-status">未連線</span>
+  <div class="api-group">
+    <label>INTEL FEED</label>
+    <input type="password" id="intel-key" placeholder="Intelligence API Key…" autocomplete="off" />
+    <button class="btn-xs" onclick="applyKey('intel')">套用</button>
+    <span class="api-stat" id="intel-status">未連線</span>
   </div>
-
-  <div class="api-input-group" style="margin-left:16px;">
-    <label style="color:var(--muted);font-size:10px;letter-spacing:1px;">衛星圖層</label>
-    <input type="password" id="sat-key" placeholder="衛星圖層 API Key…" autocomplete="off" />
-    <button class="btn-sm" onclick="applyKey('sat')">套用</button>
-    <span class="api-status" id="sat-status">未連線</span>
+  <div class="api-group">
+    <label>SATELLITE</label>
+    <input type="password" id="sat-key" placeholder="Mapbox Access Token…" autocomplete="off" />
+    <button class="btn-xs" onclick="applyKey('sat')">套用</button>
+    <span class="api-stat" id="sat-status">未連線</span>
   </div>
 </div>
 
-<!-- Main Layout -->
 <div class="main">
 
-  <!-- Left: Ship list -->
+  <!-- LEFT: Conflict zones -->
   <div class="sidebar">
-    <div class="panel-header">
-      ◈ 艦艇動向
-      <span class="count" id="ship-count">0</span>
+    <div class="phead">
+      ◈ 全球衝突區
+      <span class="cnt" id="zone-count">0</span>
     </div>
 
-    <div class="threat-meter">
-      <div class="threat-label">THREAT INDEX</div>
-      <div class="threat-bar-wrap">
-        <div class="threat-bar" id="threat-bar" style="width:62%"></div>
+    <div class="region-bar">
+      <button class="rbtn active" onclick="filterRegion(this,'ALL')">ALL</button>
+      <button class="rbtn" onclick="filterRegion(this,'EUROPE')">歐洲</button>
+      <button class="rbtn" onclick="filterRegion(this,'MIDEAST')">中東</button>
+      <button class="rbtn" onclick="filterRegion(this,'ASIA')">亞太</button>
+      <button class="rbtn" onclick="filterRegion(this,'AFRICA')">非洲</button>
+    </div>
+
+    <div class="pbody" id="conflict-list"></div>
+
+    <div class="stats-strip">
+      <div class="stat-cell">
+        <span class="sv" style="color:var(--war);" id="stat-war">0</span>
+        <span class="sk">ACTIVE WAR</span>
       </div>
-      <div class="threat-value" id="threat-val">62 / 100 — ELEVATED</div>
+      <div class="stat-cell">
+        <span class="sv" style="color:var(--conflict);" id="stat-conf">0</span>
+        <span class="sk">CONFLICT</span>
+      </div>
+      <div class="stat-cell">
+        <span class="sv" style="color:var(--tension);" id="stat-tens">0</span>
+        <span class="sk">TENSION</span>
+      </div>
     </div>
 
-    <div class="search-box">
-      <input type="text" id="ship-search" placeholder="搜尋艦艇名稱 / MMSI…" oninput="filterShips()" />
-    </div>
-
-    <div class="filter-bar">
-      <button class="filter-btn active" data-f="all" onclick="setFilter(this,'all')">ALL</button>
-      <button class="filter-btn friendly active" data-f="friendly" onclick="setFilter(this,'friendly')">FRIENDLY</button>
-      <button class="filter-btn hostile active" data-f="hostile" onclick="setFilter(this,'hostile')">HOSTILE</button>
-      <button class="filter-btn unknown active" data-f="unknown" onclick="setFilter(this,'unknown')">UNKNOWN</button>
-    </div>
-
-    <div class="panel-body" id="ship-list"></div>
-
-    <div class="detail-panel" id="detail-panel">
-      <div class="panel-header" style="font-size:10px;">◈ 選取艦艇詳情</div>
+    <div id="detail-drawer">
+      <div class="phead" style="font-size:9px;">◈ 戰區詳情</div>
       <div id="detail-body">
-        <div style="padding:12px;color:var(--muted);font-size:11px;text-align:center;">點擊艦艇以查看詳情</div>
+        <div style="padding:14px 10px;color:var(--muted);font-size:10px;text-align:center;">
+          點擊戰區以查看詳情
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Center: Map -->
+  <!-- CENTER: Map -->
   <div style="position:relative;overflow:hidden;">
-    <div id="map" style="width:100%;height:100%;"></div>
-    <div class="map-controls">
-      <button class="map-ctrl-btn active" id="btn-vessels" onclick="toggleLayer('vessels',this)">艦艇</button>
-      <button class="map-ctrl-btn active" id="btn-zones" onclick="toggleLayer('zones',this)">禁區</button>
-      <button class="map-ctrl-btn active" id="btn-routes" onclick="toggleLayer('routes',this)">航線</button>
-      <button class="map-ctrl-btn" id="btn-sat" onclick="toggleSat(this)">衛星圖層</button>
+    <div id="map"></div>
+    <div class="map-ctrl">
+      <button class="mctrl active" id="btn-zones"   onclick="toggleL('zones',this)">衝突區</button>
+      <button class="mctrl active" id="btn-vessels" onclick="toggleL('vessels',this)">艦艇</button>
+      <button class="mctrl active" id="btn-routes"  onclick="toggleL('routes',this)">航線</button>
+      <button class="mctrl active" id="btn-labels"  onclick="toggleL('labels',this)">標籤</button>
+      <button class="mctrl"        id="btn-sat"     onclick="toggleSat(this)">衛星</button>
+      <button class="mctrl"        onclick="map.setView([20,10],2)">全球視圖</button>
     </div>
   </div>
 
-  <!-- Right: Intel Feed -->
+  <!-- RIGHT: Intel feed -->
   <div class="sidebar right">
-    <div class="panel-header">
-      ◈ 情報 FEED
-      <span class="count" id="feed-count">0</span>
+    <div class="phead">
+      ◈ 全球情報 FEED
+      <span class="cnt" id="feed-count">0</span>
     </div>
-
-    <div class="filter-bar">
-      <button class="filter-btn active" onclick="setFeedFilter(this,'all')">ALL</button>
-      <button class="filter-btn hostile active" onclick="setFeedFilter(this,'high')">HIGH</button>
-      <button class="filter-btn unknown active" onclick="setFeedFilter(this,'med')">MED</button>
-      <button class="filter-btn active" onclick="setFeedFilter(this,'low')">LOW</button>
+    <div class="filt-bar">
+      <button class="fbtn on"   onclick="setFF(this,'all')">ALL</button>
+      <button class="fbtn h on" onclick="setFF(this,'high')">HIGH</button>
+      <button class="fbtn m on" onclick="setFF(this,'med')">MED</button>
+      <button class="fbtn on"   onclick="setFF(this,'low')">LOW</button>
     </div>
-
-    <div class="panel-body" id="feed-list"></div>
+    <div class="filt-bar" style="border-bottom:1px solid var(--border);">
+      <button class="fbtn on" onclick="setFR(this,'ALL')">全部地區</button>
+      <button class="fbtn"    onclick="setFR(this,'EUROPE')">歐洲</button>
+      <button class="fbtn"    onclick="setFR(this,'MIDEAST')">中東</button>
+      <button class="fbtn"    onclick="setFR(this,'ASIA')">亞太</button>
+      <button class="fbtn"    onclick="setFR(this,'AFRICA')">非洲</button>
+    </div>
+    <div class="pbody" id="feed-list"></div>
   </div>
 
 </div>
 
 <script>
-// ─── Clock ───────────────────────────────────────────────────────────────────
-function updateClock() {
-  const now = new Date();
+// ─── Clock ────────────────────────────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  const pad = v => String(v).padStart(2,'0');
   document.getElementById('clock').textContent =
-    now.toUTCString().split(' ').slice(4,5)[0] + ' UTC';
+    `${pad(n.getUTCHours())}:${pad(n.getUTCMinutes())}:${pad(n.getUTCSeconds())} UTC`;
 }
-setInterval(updateClock, 1000);
-updateClock();
+setInterval(tick, 1000); tick();
 
-// ─── API Key handling ─────────────────────────────────────────────────────────
+// GTI pulse
+let gti = 78;
+setInterval(() => {
+  gti = Math.max(70, Math.min(95, gti + (Math.random()-.45)*2));
+  document.getElementById('gti-val').textContent = Math.round(gti);
+}, 7000);
+
+// ─── API Keys ─────────────────────────────────────────────────────────────────
 const apiKeys = { ais: null, intel: null, sat: null };
-
-function applyKey(type) {
-  const val = document.getElementById(type + '-key').value.trim();
-  if (!val) return;
-  apiKeys[type] = val;
-  const el = document.getElementById(type + '-status');
-  el.textContent = '已連線';
-  el.className = 'api-status connected';
-  if (type === 'ais') initAISFeed();
-  if (type === 'intel') initIntelFeed();
-  if (type === 'sat') initSatLayer();
+function applyKey(t) {
+  const v = document.getElementById(t+'-key').value.trim();
+  if (!v) return;
+  apiKeys[t] = v;
+  const el = document.getElementById(t+'-status');
+  el.textContent = '已連線'; el.className = 'api-stat on';
+  if (t === 'sat') buildSatLayer();
+  addFeed(nowUTC(),'SYS','low','ALL',t.toUpperCase()+' API 已連線，等待資料流…');
+}
+function nowUTC() {
+  const n = new Date(); const p = v=>String(v).padStart(2,'0');
+  return `${p(n.getUTCHours())}:${p(n.getUTCMinutes())} UTC`;
 }
 
-// ─── Map Init ─────────────────────────────────────────────────────────────────
-const map = L.map('map', {
-  center: [25, 123],
-  zoom: 5,
-  zoomControl: true,
-  attributionControl: false
-});
-
-const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-}).addTo(map);
+// ─── Map ──────────────────────────────────────────────────────────────────────
+const map = L.map('map', { center:[20,10], zoom:2, zoomControl:true, attributionControl:false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18 }).addTo(map);
 
 let satLayer = null;
-
-function initSatLayer() {
-  if (!apiKeys.sat) return;
+function buildSatLayer() {
   if (satLayer) map.removeLayer(satLayer);
   satLayer = L.tileLayer(
     `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${apiKeys.sat}`,
-    { maxZoom: 18, tileSize: 512, zoomOffset: -1 }
+    { maxZoom:18, tileSize:512, zoomOffset:-1 }
   );
 }
-
 function toggleSat(btn) {
-  if (!satLayer) {
-    alert('請先輸入衛星圖層 API Key（Mapbox Access Token）');
-    return;
-  }
-  if (map.hasLayer(satLayer)) {
-    map.removeLayer(satLayer);
-    btn.classList.remove('active');
-  } else {
-    satLayer.addTo(map);
-    btn.classList.add('active');
-  }
+  if (!satLayer) { alert('請先輸入 Mapbox Access Token'); return; }
+  map.hasLayer(satLayer) ? (map.removeLayer(satLayer), btn.classList.remove('active'))
+                         : (satLayer.addTo(map), btn.classList.add('active'));
 }
 
 // ─── Layer groups ─────────────────────────────────────────────────────────────
-const layers = {
-  vessels: L.layerGroup().addTo(map),
+const lyrs = {
   zones:   L.layerGroup().addTo(map),
+  vessels: L.layerGroup().addTo(map),
   routes:  L.layerGroup().addTo(map),
+  labels:  L.layerGroup().addTo(map),
 };
-
-const layerVisible = { vessels: true, zones: true, routes: true };
-
-function toggleLayer(name, btn) {
-  if (layerVisible[name]) {
-    map.removeLayer(layers[name]);
-    layerVisible[name] = false;
-    btn.classList.remove('active');
-  } else {
-    layers[name].addTo(map);
-    layerVisible[name] = true;
-    btn.classList.add('active');
-  }
+const lvis = { zones:true, vessels:true, routes:true, labels:true };
+function toggleL(n, btn) {
+  lvis[n] ? (map.removeLayer(lyrs[n]), lvis[n]=false, btn.classList.remove('active'))
+           : (lyrs[n].addTo(map), lvis[n]=true, btn.classList.add('active'));
 }
 
-// ─── Demo Ship Data ────────────────────────────────────────────────────────────
-const ships = [
-  { id:'S001', name:'USS Ronald Reagan', type:'CARRIER', flag:'US', mmsi:'338234567',
-    lat:26.3, lng:127.8, heading:045, speed:18.2, status:'friendly',
-    course:'北上', last:'00:12 UTC', threat:'LOW' },
-  { id:'S002', name:'DDG Kongo', type:'DESTROYER', flag:'JP', mmsi:'431012345',
-    lat:28.1, lng:129.2, heading:310, speed:22.5, status:'friendly',
-    course:'西北', last:'00:09 UTC', threat:'LOW' },
-  { id:'S003', name:'[UNIDENT] CV-16', type:'CARRIER', flag:'??', mmsi:'413456789',
-    lat:24.6, lng:122.1, heading:120, speed:14.0, status:'hostile',
-    course:'東南', last:'00:05 UTC', threat:'HIGH' },
-  { id:'S004', name:'[UNIDENT] FF-054', type:'FRIGATE', flag:'??', mmsi:'413556700',
-    lat:23.8, lng:120.5, heading:090, speed:16.1, status:'hostile',
-    course:'東行', last:'00:03 UTC', threat:'HIGH' },
-  { id:'S005', name:'MV Evergreen Star', type:'MERCHANT', flag:'TW', mmsi:'416123456',
-    lat:25.1, lng:121.3, heading:180, speed:12.0, status:'neutral',
-    course:'南下', last:'00:15 UTC', threat:'NONE' },
-  { id:'S006', name:'[SHADOW] UNK-019', type:'UNKNOWN', flag:'??', mmsi:'000000019',
-    lat:22.9, lng:118.6, heading:060, speed:8.5, status:'unknown',
-    course:'北東', last:'23:58 UTC', threat:'MED' },
-  { id:'S007', name:'JMSDF Atago', type:'DESTROYER', flag:'JP', mmsi:'431087654',
-    lat:30.2, lng:131.5, heading:200, speed:19.0, status:'friendly',
-    course:'南下', last:'00:11 UTC', threat:'LOW' },
-  { id:'S008', name:'[UNIDENT] DDG-173', type:'DESTROYER', flag:'??', mmsi:'413600123',
-    lat:27.4, lng:125.9, heading:270, speed:20.3, status:'hostile',
-    course:'西行', last:'00:01 UTC', threat:'HIGH' },
+// ─── Conflict Zones Data ─────────────────────────────────────────────────────
+const conflicts = [
+  {
+    id:'UKR', name:'俄烏戰爭', flag:'🇺🇦', region:'EUROPE',
+    level:'war', intensity:94,
+    lat:49.0, lng:31.0, zoom:5,
+    parties:'🇺🇦 烏克蘭 vs 🇷🇺 俄羅斯',
+    since:'2022-02-24', casualties:'>800,000',
+    frontline:'東部頓巴斯、赫爾松、庫爾斯克',
+    status:'激烈地面戰、持續砲擊',
+    radius: 600000,
+  },
+  {
+    id:'GAZ', name:'加薩戰爭', flag:'🇵🇸', region:'MIDEAST',
+    level:'war', intensity:91,
+    lat:31.4, lng:34.4, zoom:7,
+    parties:'🇮🇱 以色列 vs 哈馬斯 / 各武裝派系',
+    since:'2023-10-07', casualties:'>100,000',
+    frontline:'加薩全境、西岸、黎巴嫩邊境',
+    status:'持續空襲與地面行動',
+    radius: 120000,
+  },
+  {
+    id:'SDN', name:'蘇丹內戰', flag:'🇸🇩', region:'AFRICA',
+    level:'war', intensity:85,
+    lat:15.5, lng:32.5, zoom:5,
+    parties:'SAF（蘇丹武裝部隊）vs RSF（快速支援部隊）',
+    since:'2023-04-15', casualties:'>150,000',
+    frontline:'喀土穆、達爾富爾、科爾多凡',
+    status:'全面內戰，大規模人道危機',
+    radius: 700000,
+  },
+  {
+    id:'YEM', name:'葉門衝突', flag:'🇾🇪', region:'MIDEAST',
+    level:'war', intensity:78,
+    lat:15.5, lng:48.0, zoom:5,
+    parties:'胡塞武裝 vs 也門政府 / 聯合國認可政府',
+    since:'2014-09-21', casualties:'>150,000',
+    frontline:'全境、紅海航道攻擊',
+    status:'持續衝突，胡塞擴大海上攻擊',
+    radius: 500000,
+  },
+  {
+    id:'MYN', name:'緬甸內戰', flag:'🇲🇲', region:'ASIA',
+    level:'war', intensity:80,
+    lat:19.0, lng:96.5, zoom:5,
+    parties:'軍政府 vs 各反抗軍（PDF、EAO 聯盟）',
+    since:'2021-02-01', casualties:'>50,000',
+    frontline:'撣邦、克欽邦、薩加因、仰光外圍',
+    status:'軍政府控制快速萎縮，反抗軍推進',
+    radius: 600000,
+  },
+  {
+    id:'DRC', name:'剛果衝突', flag:'🇨🇩', region:'AFRICA',
+    level:'war', intensity:82,
+    lat:-1.5, lng:29.0, zoom:5,
+    parties:'剛果政府軍 vs M23 / 盧安達支援部隊',
+    since:'2021-11-01', casualties:'>10,000',
+    frontline:'東部北基伍省、南基伍省',
+    status:'M23 已佔領基伍省大片領土',
+    radius: 400000,
+  },
+  {
+    id:'TWS', name:'台海緊張', flag:'🇹🇼', region:'ASIA',
+    level:'tension', intensity:72,
+    lat:24.0, lng:121.5, zoom:6,
+    parties:'🇨🇳 中國 vs 🇹🇼 台灣 / 美日聯盟',
+    since:'持續', casualties:'N/A（尚未開戰）',
+    frontline:'台灣海峽、東海、第一島鏈',
+    status:'解放軍頻繁軍演，艦艇越中線',
+    radius: 300000,
+  },
+  {
+    id:'SCS', name:'南海爭端', flag:'🌊', region:'ASIA',
+    level:'tension', intensity:65,
+    lat:12.0, lng:115.0, zoom:5,
+    parties:'🇨🇳 中國 vs 🇵🇭 菲律賓 / 🇻🇳 越南 / 🇺🇸 美軍',
+    since:'持續', casualties:'N/A',
+    frontline:'仁愛礁、黃岩島、南沙群島',
+    status:'水砲衝突、海警船對峙頻繁升溫',
+    radius: 800000,
+  },
+  {
+    id:'SAH', name:'薩赫爾衝突', flag:'🌍', region:'AFRICA',
+    level:'conflict', intensity:74,
+    lat:14.0, lng:0.0, zoom:4,
+    parties:'馬利/布基納/尼日軍政府 vs 聖戰武裝（JNIM / ISGS）',
+    since:'2012-01-01', casualties:'>20,000',
+    frontline:'馬利中部、布基納法索全境、尼日爾',
+    status:'西非鐵盟擴張，法軍撤離後情勢惡化',
+    radius: 1200000,
+  },
+  {
+    id:'SOM', name:'索馬利亞衝突', flag:'🇸🇴', region:'AFRICA',
+    level:'conflict', intensity:68,
+    lat:5.0, lng:45.0, zoom:5,
+    parties:'索馬利亞政府 vs 青年黨（Al-Shabaab）',
+    since:'2006-01-01', casualties:'>500,000',
+    frontline:'中南部各地',
+    status:'青年黨仍控制農村，持續恐攻',
+    radius: 500000,
+  },
+  {
+    id:'IRN', name:'伊朗核危機', flag:'🇮🇷', region:'MIDEAST',
+    level:'tension', intensity:70,
+    lat:32.0, lng:53.0, zoom:5,
+    parties:'🇮🇷 伊朗 vs 🇮🇱 以色列 / 🇺🇸 美國',
+    since:'持續', casualties:'N/A',
+    frontline:'波斯灣、霍爾木茲海峽、代理人戰爭網絡',
+    status:'核濃縮提升，代理人衝突遍布中東',
+    radius: 600000,
+  },
+  {
+    id:'RDS', name:'紅海危機', flag:'🚢', region:'MIDEAST',
+    level:'conflict', intensity:76,
+    lat:15.0, lng:42.5, zoom:5,
+    parties:'胡塞武裝 vs 國際護航部隊（美英）',
+    since:'2023-11-19', casualties:'數十名水手',
+    frontline:'紅海全域、亞丁灣、蘇伊士入口',
+    status:'商船持續遭攻擊，航運改道好望角',
+    radius: 400000,
+  },
+  {
+    id:'ETH', name:'衣索比亞衝突', flag:'🇪🇹', region:'AFRICA',
+    level:'conflict', intensity:58,
+    lat:9.0, lng:40.0, zoom:5,
+    parties:'聯邦政府 vs 阿姆哈拉民兵 / 奧羅莫武裝',
+    since:'2023-01-01', casualties:'>5,000',
+    frontline:'阿姆哈拉州、奧羅米亞州',
+    status:'提格雷停火後，阿姆哈拉局勢惡化',
+    radius: 500000,
+  },
+  {
+    id:'KOR', name:'朝鮮半島緊張', flag:'🇰🇵', region:'ASIA',
+    level:'tension', intensity:60,
+    lat:39.0, lng:127.5, zoom:5,
+    parties:'🇰🇵 朝鮮 vs 🇰🇷 韓國 / 🇺🇸 美軍',
+    since:'持續', casualties:'N/A',
+    frontline:'DMZ、黃海、東海',
+    status:'朝鮮持續飛彈試射，核武庫擴充',
+    radius: 300000,
+  },
+  {
+    id:'UKB', name:'烏克蘭－白俄邊境', flag:'🇧🇾', region:'EUROPE',
+    level:'tension', intensity:55,
+    lat:52.5, lng:28.0, zoom:6,
+    parties:'🇧🇾 白俄羅斯 / 俄羅斯 vs 🇺🇦 烏克蘭',
+    since:'2022-02-24', casualties:'N/A',
+    frontline:'北部邊境、波蘭邊境地帶',
+    status:'白俄軍隊集結，波蘭加強防衛',
+    radius: 200000,
+  },
+  {
+    id:'LIB', name:'利比亞衝突', flag:'🇱🇾', region:'AFRICA',
+    level:'conflict', intensity:52,
+    lat:27.0, lng:18.0, zoom:5,
+    parties:'GNU（的黎波里）vs HoR / LNA（班加西）',
+    since:'2014-01-01', casualties:'>25,000',
+    frontline:'西利比亞、費贊沙漠地帶',
+    status:'分裂局面持續，外國干預仍存在',
+    radius: 700000,
+  },
 ];
 
-// ─── Ship icons ───────────────────────────────────────────────────────────────
-function makeShipSVG(status, heading) {
-  const color = status === 'friendly' ? '#00e676'
-              : status === 'hostile'  ? '#ff3b3b'
-              : status === 'unknown'  ? '#ffaa00'
-              : '#4a6070';
-  const rot = heading || 0;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <g transform="rotate(${rot},12,12)">
-      <polygon points="12,2 16,20 12,17 8,20" fill="${color}" opacity="0.9"/>
-      <polygon points="12,2 16,20 12,17 8,20" fill="none" stroke="${color}" stroke-width="1"/>
-    </g>
-    <circle cx="12" cy="12" r="5" fill="none" stroke="${color}" stroke-width="0.5" opacity="0.4"/>
-  </svg>`;
+// ─── Ships (global) ───────────────────────────────────────────────────────────
+const ships = [
+  // Pacific / Taiwan Strait
+  { id:'S01', name:'USS Gerald Ford', type:'CVN', flag:'US', mmsi:'338100001',
+    lat:25.0, lng:130.0, heading:270, speed:18, status:'friendly', region:'ASIA', threat:'LOW' },
+  { id:'S02', name:'USS Nimitz CSG', type:'CVN', flag:'US', mmsi:'338100002',
+    lat:13.5, lng:145.0, heading:280, speed:15, status:'friendly', region:'ASIA', threat:'LOW' },
+  { id:'S03', name:'[PLA] CV Fujian', type:'CVN', flag:'CN', mmsi:'413700003',
+    lat:22.5, lng:118.0, heading:120, speed:14, status:'hostile', region:'ASIA', threat:'HIGH' },
+  { id:'S04', name:'[PLA] DDG-180', type:'DDG', flag:'CN', mmsi:'413700004',
+    lat:24.0, lng:123.5, heading:090, speed:18, status:'hostile', region:'ASIA', threat:'HIGH' },
+  { id:'S05', name:'JS Izumo', type:'DDH', flag:'JP', mmsi:'431500005',
+    lat:31.5, lng:132.0, heading:200, speed:16, status:'friendly', region:'ASIA', threat:'LOW' },
+  // Red Sea / Indian Ocean
+  { id:'S06', name:'USS Dwight D. Eisenhower', type:'CVN', flag:'US', mmsi:'338100006',
+    lat:14.5, lng:43.5, heading:340, speed:14, status:'friendly', region:'MIDEAST', threat:'MED' },
+  { id:'S07', name:'[Houthi] HSV-Swift', type:'MISC', flag:'YE', mmsi:'431000007',
+    lat:16.0, lng:41.5, heading:060, speed:22, status:'hostile', region:'MIDEAST', threat:'HIGH' },
+  { id:'S08', name:'MV Ruby Mar', type:'MERCHANT', flag:'--', mmsi:'000000008',
+    lat:14.2, lng:44.0, heading:160, speed:8, status:'unknown', region:'MIDEAST', threat:'HIGH' },
+  // Black Sea / Eastern Europe
+  { id:'S09', name:'[RU] Moskva-2', type:'CG', flag:'RU', mmsi:'273100009',
+    lat:44.5, lng:33.5, heading:180, speed:12, status:'hostile', region:'EUROPE', threat:'HIGH' },
+  { id:'S10', name:'HMS Prince of Wales', type:'CVF', flag:'GB', mmsi:'232100010',
+    lat:52.0, lng:-3.0, heading:090, speed:10, status:'friendly', region:'EUROPE', threat:'LOW' },
+  // North Korea
+  { id:'S11', name:'[DPRK] Sinpo-C SSB', type:'SSB', flag:'KP', mmsi:'445100011',
+    lat:40.0, lng:128.5, heading:110, speed:8, status:'hostile', region:'ASIA', threat:'HIGH' },
+  // Atlantic
+  { id:'S12', name:'USS Harry S. Truman', type:'CVN', flag:'US', mmsi:'338100012',
+    lat:38.0, lng:-30.0, heading:090, speed:14, status:'friendly', region:'EUROPE', threat:'LOW' },
+  // Persian Gulf
+  { id:'S13', name:'USS Abraham Lincoln', type:'CVN', flag:'US', mmsi:'338100013',
+    lat:26.0, lng:56.5, heading:270, speed:12, status:'friendly', region:'MIDEAST', threat:'MED' },
+  { id:'S14', name:'[IRGCN] FAC-Squadron', type:'FAC', flag:'IR', mmsi:'422100014',
+    lat:26.5, lng:57.0, heading:180, speed:28, status:'hostile', region:'MIDEAST', threat:'HIGH' },
+  // South China Sea
+  { id:'S15', name:'BRP Sierra Madre', type:'MISC', flag:'PH', mmsi:'548100015',
+    lat:9.7, lng:115.9, heading:000, speed:0, status:'friendly', region:'ASIA', threat:'MED' },
+  { id:'S16', name:'[CCG] Haijing-5901', type:'CGV', flag:'CN', mmsi:'413700016',
+    lat:9.8, lng:115.7, heading:180, speed:5, status:'hostile', region:'ASIA', threat:'HIGH' },
+];
+
+// ─── Intel Feed ───────────────────────────────────────────────────────────────
+const feedData = [
+  { time:'00:18 UTC', src:'SIGINT-EU', priority:'high', region:'EUROPE',
+    txt:'俄軍 Iskander-M 飛彈部隊在白俄羅斯境內移動，疑似針對波蘭基礎設施' },
+  { time:'00:15 UTC', src:'HUMINT-ME', priority:'high', region:'MIDEAST',
+    txt:'加薩北部偵測到大規模地下通道爆破行動，傷亡不明' },
+  { time:'00:12 UTC', src:'AIS-LIVE',  priority:'high', region:'MIDEAST',
+    txt:'紅海 MV Ruby Mar 號失聯逾 2 小時，最後位置 14.2°N 44.0°E' },
+  { time:'00:10 UTC', src:'IMINT-AS',  priority:'high', region:'ASIA',
+    txt:'衛星確認解放軍福建艦已進入台灣海峽，伴隨 DDG × 4' },
+  { time:'00:08 UTC', src:'OSINT-AF',  priority:'high', region:'AFRICA',
+    txt:'DRC 戈馬市遭 M23 砲擊，平民疏散中' },
+  { time:'00:07 UTC', src:'ELINT-ME',  priority:'high', region:'MIDEAST',
+    txt:'伊朗 S-300 防空系統雷達開機，覆蓋荷姆茲海峽' },
+  { time:'00:05 UTC', src:'SIGINT-AS', priority:'high', region:'ASIA',
+    txt:'朝鮮平壤廣播突然中斷，疑似重大軍事活動前置跡象' },
+  { time:'00:03 UTC', src:'AIS-LIVE',  priority:'med',  region:'MIDEAST',
+    txt:'紅海商業航運今日改道率達 94%，蘇伊士運河通量腰斬' },
+  { time:'00:01 UTC', src:'OSINT-EU',  priority:'med',  region:'EUROPE',
+    txt:'烏克蘭哈爾科夫遭無人機群攻擊，防空系統攔截 18 枚' },
+  { time:'23:59 UTC', src:'HUMINT-AS', priority:'med',  region:'ASIA',
+    txt:'緬甸反抗軍宣稱佔領曼德勒附近第三座鎮' },
+  { time:'23:57 UTC', src:'IMINT-AF',  priority:'med',  region:'AFRICA',
+    txt:'蘇丹北部喀土穆衛星影像顯示 RSF 裝甲車縱隊' },
+  { time:'23:55 UTC', src:'SIGINT-AS', priority:'med',  region:'ASIA',
+    txt:'南海菲律賓補給任務遭中國海警攔截，水砲阻止登船' },
+  { time:'23:52 UTC', src:'ELINT-ME',  priority:'med',  region:'MIDEAST',
+    txt:'葉門胡塞無人機編隊偵測，方向 N025，目標疑為紅海商船' },
+  { time:'23:50 UTC', src:'OSINT-EU',  priority:'low',  region:'EUROPE',
+    txt:'波蘭第 18 機械化師已完成東部邊境部署' },
+  { time:'23:48 UTC', src:'AIS-LIVE',  priority:'low',  region:'ASIA',
+    txt:'USS Gerald Ford CSG 通過宮古海峽，進入西太平洋' },
+  { time:'23:45 UTC', src:'HUMINT-AF', priority:'low',  region:'AFRICA',
+    txt:'索馬利亞摩加迪休 IED 事件，暫無軍事人員傷亡' },
+  { time:'23:42 UTC', src:'OSINT-AS',  priority:'low',  region:'ASIA',
+    txt:'日本將自衛隊戒備等級提升至第二級，回應朝鮮活動' },
+  { time:'23:40 UTC', src:'SIGINT-ME', priority:'low',  region:'MIDEAST',
+    txt:'伊拉克 PMF 部隊通訊量上升，與伊朗 IRGC 信號重疊' },
+];
+
+// ─── Conflict Zone Markers ────────────────────────────────────────────────────
+function intensityColor(level) {
+  return level === 'war' ? '#ff2222' : level === 'conflict' ? '#ff7700' : level === 'tension' ? '#ffcc00' : '#44aaff';
 }
 
-const shipMarkers = {};
-
-function renderShipMarkers() {
-  layers.vessels.clearLayers();
-  ships.forEach(s => {
-    const icon = L.divIcon({
-      html: makeShipSVG(s.status, s.heading),
-      iconSize: [24, 24], iconAnchor: [12, 12],
-      className: 'ship-icon'
+function renderConflictMarkers() {
+  lyrs.zones.clearLayers();
+  lyrs.labels.clearLayers();
+  conflicts.forEach(c => {
+    const col = intensityColor(c.level);
+    // Pulsing outer ring
+    [1, 1.7, 2.4].forEach((mult, i) => {
+      L.circle([c.lat, c.lng], {
+        radius: c.radius * mult * 0.3,
+        color: col, fillColor: col,
+        fillOpacity: 0.03 - i*0.008,
+        weight: i === 0 ? 1 : 0.3,
+        dashArray: '4,6'
+      }).addTo(lyrs.zones);
     });
-    const m = L.marker([s.lat, s.lng], { icon })
-      .bindPopup(buildPopup(s))
-      .on('click', () => selectShip(s.id));
-    m.addTo(layers.vessels);
-    shipMarkers[s.id] = m;
+    // Core marker
+    L.circleMarker([c.lat, c.lng], {
+      radius: 7 + c.intensity / 20,
+      color: col, fillColor: col,
+      fillOpacity: 0.85, weight: 2
+    })
+    .bindPopup(buildConflictPopup(c))
+    .on('click', () => selectConflict(c.id))
+    .addTo(lyrs.zones);
+    // Label
+    L.marker([c.lat + 1.5, c.lng], {
+      icon: L.divIcon({
+        html: `<div style="color:${col};font-family:'Courier New',monospace;font-size:9px;letter-spacing:1px;white-space:nowrap;text-shadow:0 0 4px ${col}80;">${c.flag} ${c.name}</div>`,
+        className: '', iconAnchor: [0, 0]
+      })
+    }).addTo(lyrs.labels);
   });
 }
 
-function buildPopup(s) {
-  return `<div style="min-width:180px;">
-    <div style="color:var(--accent);letter-spacing:2px;font-size:11px;margin-bottom:6px;">${s.name}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:11px;">
+function buildConflictPopup(c) {
+  const col = intensityColor(c.level);
+  return `<div style="min-width:220px;">
+    <div style="color:${col};letter-spacing:2px;font-size:11px;margin-bottom:8px;">${c.flag} ${c.name}</div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:10px;">
+      <span style="color:var(--muted)">PARTIES</span><span>${c.parties}</span>
+      <span style="color:var(--muted)">SINCE</span><span>${c.since}</span>
+      <span style="color:var(--muted)">CASUALTIES</span><span style="color:${col}">${c.casualties}</span>
+      <span style="color:var(--muted)">FRONT</span><span>${c.frontline}</span>
+      <span style="color:var(--muted)">STATUS</span><span>${c.status}</span>
+      <span style="color:var(--muted)">INTENSITY</span>
+      <span style="color:${col}">${c.intensity} / 100</span>
+    </div>
+  </div>`;
+}
+
+// ─── Ship Markers ─────────────────────────────────────────────────────────────
+function shipSVG(status, heading) {
+  const col = status === 'friendly' ? '#00e676' : status === 'hostile' ? '#ff3b3b' : '#ffaa00';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
+    <g transform="rotate(${heading},12,12)">
+      <polygon points="12,2 16,20 12,17 8,20" fill="${col}" opacity=".9"/>
+    </g>
+    <circle cx="12" cy="12" r="4" fill="none" stroke="${col}" stroke-width=".6" opacity=".5"/>
+  </svg>`;
+}
+const shipMkrs = {};
+function renderShipMarkers() {
+  lyrs.vessels.clearLayers();
+  ships.forEach(s => {
+    const icon = L.divIcon({ html: shipSVG(s.status, s.heading), iconSize:[22,22], iconAnchor:[11,11], className:'' });
+    const m = L.marker([s.lat, s.lng], { icon })
+      .bindPopup(shipPopup(s))
+      .on('click', () => zoomToShip(s));
+    m.addTo(lyrs.vessels);
+    shipMkrs[s.id] = m;
+  });
+}
+function shipPopup(s) {
+  const col = s.status==='friendly'?'var(--ok)':s.status==='hostile'?'var(--danger)':'var(--warn)';
+  return `<div style="min-width:190px;">
+    <div style="color:${col};letter-spacing:2px;font-size:10px;margin-bottom:6px;">${s.name}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:10px;">
       <span style="color:var(--muted)">TYPE</span><span>${s.type}</span>
+      <span style="color:var(--muted)">FLAG</span><span>${s.flag}</span>
       <span style="color:var(--muted)">MMSI</span><span>${s.mmsi}</span>
       <span style="color:var(--muted)">SPEED</span><span>${s.speed} kn</span>
       <span style="color:var(--muted)">HDG</span><span>${s.heading}°</span>
-      <span style="color:var(--muted)">COURSE</span><span>${s.course}</span>
       <span style="color:var(--muted)">THREAT</span>
       <span style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">${s.threat}</span>
     </div>
   </div>`;
 }
+function zoomToShip(s) { map.setView([s.lat, s.lng], 6, { animate:true }); }
 
-// ─── Exclusion Zones ──────────────────────────────────────────────────────────
-function renderZones() {
-  layers.zones.clearLayers();
-  const zones = [
-    { lat: 24.5, lng: 122.0, r: 80000, label: 'ZONE ALPHA — RESTRICTED' },
-    { lat: 26.0, lng: 120.5, r: 50000, label: 'ZONE BRAVO — MONITORING' },
-  ];
-  zones.forEach(z => {
-    L.circle([z.lat, z.lng], {
-      radius: z.r,
-      color: '#ff3b3b',
-      fillColor: '#ff3b3b',
-      fillOpacity: 0.06,
-      weight: 1,
-      dashArray: '6,4'
-    }).bindTooltip(z.label, { className: 'leaflet-tooltip', direction: 'center' })
-      .addTo(layers.zones);
-  });
-}
-
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── Routes (shipping lanes under attack) ────────────────────────────────────
 function renderRoutes() {
-  layers.routes.clearLayers();
+  lyrs.routes.clearLayers();
   const routes = [
-    { points: [[26.3,127.8],[28.1,129.2],[30.2,131.5]], color: '#00e676' },
-    { points: [[24.6,122.1],[24.0,123.5],[23.5,125.0]], color: '#ff3b3b' },
-    { points: [[22.9,118.6],[23.5,120.0],[24.6,122.1]], color: '#ffaa00' },
+    { pts:[[14.5,43.5],[12.5,44.5],[11.5,51.0]], col:'#ff3b3b', dash:'4,4' }, // Red Sea danger
+    { pts:[[22.5,118.0],[24.0,121.0],[25.5,125.0]], col:'#ff3b3b', dash:'4,4' }, // Taiwan Strait
+    { pts:[[26.5,57.0],[25.0,58.5],[22.5,62.0]],   col:'#ff7700', dash:'4,6' }, // Persian Gulf
+    { pts:[[9.8,115.7],[10.0,118.0],[12.0,120.0]],  col:'#ff7700', dash:'4,6' }, // SCS
+    { pts:[[52.0,-3.0],[48.0,-5.0],[38.0,-10.0]],   col:'#00e676', dash:'3,6' }, // Atlantic patrol
+    { pts:[[44.5,33.5],[42.0,31.0],[40.0,28.5]],    col:'#ff3b3b', dash:'4,4' }, // Black Sea
   ];
   routes.forEach(r => {
-    L.polyline(r.points, {
-      color: r.color, weight: 1.5, opacity: 0.5, dashArray: '4,4'
-    }).addTo(layers.routes);
+    L.polyline(r.pts, { color:r.col, weight:1.5, opacity:0.55, dashArray:r.dash })
+      .addTo(lyrs.routes);
   });
 }
 
-// ─── Ship List UI ─────────────────────────────────────────────────────────────
-let activeFilters = new Set(['friendly','hostile','unknown','neutral']);
-let searchQuery = '';
-let selectedShip = null;
+// ─── Conflict List UI ─────────────────────────────────────────────────────────
+let regionFilter = 'ALL';
+let selectedZone = null;
 
-function renderShipList() {
-  const container = document.getElementById('ship-list');
-  const query = searchQuery.toLowerCase();
-  const visible = ships.filter(s => {
-    const matchFilter = activeFilters.has(s.status);
-    const matchSearch = !query ||
-      s.name.toLowerCase().includes(query) ||
-      s.mmsi.includes(query);
-    return matchFilter && matchSearch;
-  });
+function renderConflictList() {
+  const visible = conflicts.filter(c => regionFilter === 'ALL' || c.region === regionFilter);
+  document.getElementById('zone-count').textContent = visible.length;
+  document.getElementById('stat-war').textContent  = conflicts.filter(c=>c.level==='war').length;
+  document.getElementById('stat-conf').textContent = conflicts.filter(c=>c.level==='conflict').length;
+  document.getElementById('stat-tens').textContent = conflicts.filter(c=>c.level==='tension').length;
 
-  document.getElementById('ship-count').textContent = visible.length;
-  container.innerHTML = visible.map(s => `
-    <div class="ship-card ${s.status} ${selectedShip===s.id?'selected':''}"
-         id="card-${s.id}" onclick="selectShip('${s.id}')">
-      <div class="ship-name">
-        <span class="tag ${s.status}">${s.status.toUpperCase()}</span>
-        ${s.name}
-      </div>
-      <div class="ship-meta">
-        <span><span>TYPE: ${s.type}</span><span>FLAG: ${s.flag}</span></span>
-        <span><span>SPD: ${s.speed} kn</span><span>HDG: ${s.heading}°</span></span>
-        <span><span>COURSE: ${s.course}</span>
-          <span style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">
-            ⚠ ${s.threat}
-          </span>
-        </span>
-      </div>
-    </div>`
-  ).join('');
+  document.getElementById('conflict-list').innerHTML = visible
+    .sort((a,b) => b.intensity - a.intensity)
+    .map(c => {
+      const col = intensityColor(c.level);
+      return `<div class="conflict-card ${c.level} ${selectedZone===c.id?'active':''}"
+                   onclick="selectConflict('${c.id}')">
+        <div class="c-top">
+          <span class="c-flag">${c.flag}</span>
+          <span class="c-name">${c.name}</span>
+          <span class="c-badge ${c.level}">${c.level.toUpperCase()}</span>
+        </div>
+        <div class="c-meta">
+          <b>${c.parties}</b><br/>
+          ${c.frontline}<br/>
+          傷亡：${c.casualties}
+        </div>
+        <div class="c-intensity">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);">
+            <span>INTENSITY</span><span style="color:${col}">${c.intensity}/100</span>
+          </div>
+          <div class="c-bar-wrap">
+            <div class="c-bar" style="width:${c.intensity}%;background:${col};"></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
 }
 
-function selectShip(id) {
-  selectedShip = id;
-  const s = ships.find(x => x.id === id);
-  if (!s) return;
-  renderShipList();
-  map.setView([s.lat, s.lng], 7, { animate: true });
-  shipMarkers[id]?.openPopup();
+function filterRegion(btn, r) {
+  regionFilter = r;
+  document.querySelectorAll('.rbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderConflictList();
+}
+
+function selectConflict(id) {
+  selectedZone = id;
+  const c = conflicts.find(x => x.id === id);
+  if (!c) return;
+  renderConflictList();
+  map.setView([c.lat, c.lng], c.zoom, { animate:true });
+  const col = intensityColor(c.level);
   document.getElementById('detail-body').innerHTML = `
-    <div class="detail-row"><span class="key">VESSEL</span><span class="val">${s.name}</span></div>
-    <div class="detail-row"><span class="key">TYPE</span><span class="val">${s.type}</span></div>
-    <div class="detail-row"><span class="key">FLAG</span><span class="val">${s.flag}</span></div>
-    <div class="detail-row"><span class="key">MMSI</span><span class="val">${s.mmsi}</span></div>
-    <div class="detail-row"><span class="key">POSITION</span><span class="val">${s.lat.toFixed(2)}N ${s.lng.toFixed(2)}E</span></div>
-    <div class="detail-row"><span class="key">HEADING</span><span class="val">${s.heading}°</span></div>
-    <div class="detail-row"><span class="key">SPEED</span><span class="val">${s.speed} kn</span></div>
-    <div class="detail-row"><span class="key">COURSE</span><span class="val">${s.course}</span></div>
-    <div class="detail-row"><span class="key">LAST UPDATE</span><span class="val">${s.last}</span></div>
-    <div class="detail-row"><span class="key">THREAT</span>
-      <span class="val" style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">
-        ${s.threat}
-      </span>
-    </div>`;
+    <div class="drow"><span class="dk">THEATRE</span><span class="dv">${c.flag} ${c.name}</span></div>
+    <div class="drow"><span class="dk">LEVEL</span><span class="dv" style="color:${col}">${c.level.toUpperCase()}</span></div>
+    <div class="drow"><span class="dk">PARTIES</span><span class="dv">${c.parties}</span></div>
+    <div class="drow"><span class="dk">SINCE</span><span class="dv">${c.since}</span></div>
+    <div class="drow"><span class="dk">CASUALTIES</span><span class="dv" style="color:${col}">${c.casualties}</span></div>
+    <div class="drow"><span class="dk">FRONTLINE</span><span class="dv">${c.frontline}</span></div>
+    <div class="drow"><span class="dk">STATUS</span><span class="dv">${c.status}</span></div>
+    <div class="drow"><span class="dk">INTENSITY</span><span class="dv" style="color:${col}">${c.intensity} / 100</span></div>
+  `;
 }
 
-function setFilter(btn, f) {
+// ─── Intel Feed UI ────────────────────────────────────────────────────────────
+let feedPrio = new Set(['high','med','low']);
+let feedRegion = 'ALL';
+
+function setFF(btn, f) {
   if (f === 'all') {
-    const allActive = ['friendly','hostile','unknown','neutral'].every(x => activeFilters.has(x));
-    if (allActive) {
-      activeFilters.clear();
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    } else {
-      activeFilters = new Set(['friendly','hostile','unknown','neutral']);
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.add('active'));
-    }
+    const allOn = ['high','med','low'].every(x => feedPrio.has(x));
+    allOn ? (feedPrio.clear(), btn.parentElement.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on')))
+          : (feedPrio = new Set(['high','med','low']), btn.parentElement.querySelectorAll('.fbtn').forEach(b=>b.classList.add('on')));
   } else {
-    if (activeFilters.has(f)) {
-      activeFilters.delete(f);
-      btn.classList.remove('active');
-    } else {
-      activeFilters.add(f);
-      btn.classList.add('active');
-    }
+    feedPrio.has(f) ? (feedPrio.delete(f), btn.classList.remove('on'))
+                    : (feedPrio.add(f), btn.classList.add('on'));
   }
-  renderShipList();
+  renderFeed();
 }
 
-function filterShips() {
-  searchQuery = document.getElementById('ship-search').value;
-  renderShipList();
-}
-
-// ─── Intel Feed ───────────────────────────────────────────────────────────────
-const feedData = [
-  { time:'00:14 UTC', source:'SIGINT-7', priority:'high',
-    text:'偵測到 CV-16 艦載機起飛準備動作，疑似戰備狀態' },
-  { time:'00:11 UTC', source:'HUMINT-R3', priority:'high',
-    text:'前進基地回報：近海岸疑似潛艦通氣管訊號' },
-  { time:'00:08 UTC', source:'OSINT-M', priority:'med',
-    text:'商業衛星影像顯示 3 艘不明艦艇離港，方位北偏東 25°' },
-  { time:'00:05 UTC', source:'AIS-LIVE', priority:'low',
-    text:'DDG Kongo 已進入監控區域北端，與預定航線吻合' },
-  { time:'00:03 UTC', source:'ELINT-4', priority:'high',
-    text:'電磁干擾訊號強度上升，頻段與 YJ-12 導引雷達吻合' },
-  { time:'23:59 UTC', source:'IMINT-2', priority:'med',
-    text:'Zone Alpha 內發現 2 艘高速艇，速度約 35 節' },
-  { time:'23:55 UTC', source:'AIS-LIVE', priority:'low',
-    text:'MV Evergreen Star 正常通過台灣海峽，航行路線無異常' },
-  { time:'23:50 UTC', source:'SIGINT-7', priority:'med',
-    text:'加密通訊量較昨日基準值上升 340%，疑似軍事協調中' },
-  { time:'23:44 UTC', source:'HUMINT-R1', priority:'high',
-    text:'港口目擊大量補給車輛進入海軍基地，疑備戰' },
-  { time:'23:38 UTC', source:'OSINT-M', priority:'low',
-    text:'社交媒體情報：軍事演習公告疑似掩蓋真實行動' },
-];
-
-let feedFilter = new Set(['high','med','low']);
-
-function setFeedFilter(btn, f) {
-  if (f === 'all') {
-    const allActive = ['high','med','low'].every(x => feedFilter.has(x));
-    if (allActive) {
-      feedFilter.clear();
-      btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    } else {
-      feedFilter = new Set(['high','med','low']);
-      btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.add('active'));
-    }
-  } else {
-    if (feedFilter.has(f)) {
-      feedFilter.delete(f);
-      btn.classList.remove('active');
-    } else {
-      feedFilter.add(f);
-      btn.classList.add('active');
-    }
-  }
+function setFR(btn, r) {
+  feedRegion = r;
+  btn.closest('.filt-bar').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
   renderFeed();
 }
 
 function renderFeed() {
-  const visible = feedData.filter(f => feedFilter.has(f.priority));
-  document.getElementById('feed-count').textContent = visible.length;
-  document.getElementById('feed-list').innerHTML = visible.map(f => `
-    <div class="feed-item">
-      <div class="feed-time">${f.time}</div>
-      <div class="feed-source" style="color:${f.priority==='high'?'var(--danger)':f.priority==='med'?'var(--warn)':'var(--ok)'}">
-        [${f.priority.toUpperCase()}] ${f.source}
+  const vis = feedData.filter(f =>
+    feedPrio.has(f.priority) &&
+    (feedRegion === 'ALL' || f.region === feedRegion)
+  );
+  document.getElementById('feed-count').textContent = vis.length;
+  document.getElementById('feed-list').innerHTML = vis.map(f => {
+    const rcol = f.priority==='high'?'var(--danger)':f.priority==='med'?'var(--warn)':'#7a9e7a';
+    const rmap = { EUROPE:'歐洲',MIDEAST:'中東',ASIA:'亞太',AFRICA:'非洲' };
+    return `<div class="feed-item" onclick="jumpFeed('${f.region}')">
+      <div class="feed-head">
+        <span class="feed-time">${f.time}</span>
+        <span class="feed-region" style="border-color:${rcol};color:${rcol};">${rmap[f.region]||f.region}</span>
+        <span class="feed-src">${f.src}</span>
       </div>
-      <div class="feed-text ${f.priority}">${f.text}</div>
-    </div>`
-  ).join('');
+      <div class="feed-txt ${f.priority}">${f.txt}</div>
+    </div>`;
+  }).join('');
 }
 
-// ─── Live simulation ──────────────────────────────────────────────────────────
-function simulateMovement() {
-  ships.forEach(s => {
-    const rad = s.heading * Math.PI / 180;
-    s.lat += Math.cos(rad) * 0.008;
-    s.lng += Math.sin(rad) * 0.008;
-  });
-  ships.forEach(s => {
-    const icon = L.divIcon({
-      html: makeShipSVG(s.status, s.heading),
-      iconSize: [24,24], iconAnchor: [12,12], className: 'ship-icon'
-    });
-    shipMarkers[s.id]?.setLatLng([s.lat, s.lng]);
-    shipMarkers[s.id]?.setIcon(icon);
-    shipMarkers[s.id]?.setPopupContent(buildPopup(s));
-  });
-  if (selectedShip) {
-    const s = ships.find(x => x.id === selectedShip);
-    if (s) {
-      document.querySelector(`#detail-body .detail-row:nth-child(5) .val`).textContent =
-        `${s.lat.toFixed(2)}N ${s.lng.toFixed(2)}E`;
-    }
-  }
+function jumpFeed(region) {
+  const centers = {
+    EUROPE:[50,20,4], MIDEAST:[25,45,4], ASIA:[20,110,4], AFRICA:[5,25,3]
+  };
+  if (centers[region]) map.setView([centers[region][0], centers[region][1]], centers[region][2], { animate:true });
 }
 
-// ─── AIS / Intel hooks (called when API key applied) ──────────────────────────
-function initAISFeed() {
-  // Placeholder: replace with real AIS API calls using apiKeys.ais
-  console.log('[WARWATCH] AIS key applied — connect to real AIS endpoint here.');
-  addFeedItem('00:00 UTC','SYS','low','AIS 資料來源已連線，等待即時資料…');
-}
-
-function initIntelFeed() {
-  console.log('[WARWATCH] Intel key applied — connect to intel endpoint here.');
-  addFeedItem('00:00 UTC','SYS','low','情報來源已連線，等待即時情報推送…');
-}
-
-function addFeedItem(time, source, priority, text) {
-  feedData.unshift({ time, source, priority, text });
+function addFeed(time, src, priority, region, txt) {
+  feedData.unshift({ time, src, priority, region, txt });
   renderFeed();
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-renderShipMarkers();
-renderZones();
-renderRoutes();
-renderShipList();
-renderFeed();
+// ─── Ship movement simulation ─────────────────────────────────────────────────
+function simShips() {
+  ships.forEach(s => {
+    const rad = s.heading * Math.PI / 180;
+    s.lat += Math.cos(rad) * 0.012;
+    s.lng += Math.sin(rad) * 0.012;
+    const icon = L.divIcon({ html: shipSVG(s.status, s.heading), iconSize:[22,22], iconAnchor:[11,11], className:'' });
+    shipMkrs[s.id]?.setLatLng([s.lat, s.lng]);
+    shipMkrs[s.id]?.setIcon(icon);
+    shipMkrs[s.id]?.setPopupContent(shipPopup(s));
+  });
+}
 
-setInterval(simulateMovement, 3000);
+// ─── Live feed ticker ─────────────────────────────────────────────────────────
+const liveEvents = [
+  { priority:'high', region:'MIDEAST', src:'SIGINT-ME', txt:'偵測到胡塞彈道飛彈發射，目標方向紅海商船編隊' },
+  { priority:'high', region:'EUROPE',  src:'IMINT-EU',  txt:'俄羅斯 Su-35 跨越烏克蘭領空，方位北偏東 040°' },
+  { priority:'high', region:'ASIA',    src:'ELINT-AS',  txt:'解放軍火箭軍訊號急增，疑似演習轉入實戰預備' },
+  { priority:'med',  region:'AFRICA',  src:'HUMINT-AF', txt:'蘇丹 RSF 向科爾多凡省增兵 2,000 人' },
+  { priority:'med',  region:'ASIA',    src:'AIS-LIVE',  txt:'南海新發現不明潛望鏡蹤跡，靠近美軍航母打擊群' },
+  { priority:'low',  region:'EUROPE',  src:'OSINT-EU',  txt:'波羅的海演習「波羅的海行動」啟動，NATO 17 國參與' },
+];
+let liveIdx = 0;
 setInterval(() => {
-  const idx = Math.floor(Math.random() * feedData.length);
-  // Rotate feed to simulate live updates
-}, 15000);
+  const ev = liveEvents[liveIdx % liveEvents.length]; liveIdx++;
+  addFeed(nowUTC(), ev.src, ev.priority, ev.region, ev.txt);
+}, 20000);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderConflictMarkers();
+renderShipMarkers();
+renderRoutes();
+renderConflictList();
+renderFeed();
+setInterval(simShips, 4000);
 </script>
 </body>
 </html>
