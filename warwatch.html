@@ -348,9 +348,8 @@
   <label>API KEYS</label>
   <div class="api-group">
     <label>AIS/VESSEL</label>
-    <input type="password" id="ais-key" placeholder="AIS API Key…" autocomplete="off" />
-    <button class="btn-xs" onclick="applyKey('ais')">套用</button>
-    <span class="api-stat" id="ais-status">未連線</span>
+    <span class="api-stat" id="ais-status">連線中…</span>
+    <span id="ais-live-count" style="font-size:9px;color:var(--muted);letter-spacing:1px;">0 vessels</span>
   </div>
   <div class="api-group">
     <label>INTEL FEED</label>
@@ -476,7 +475,8 @@ setInterval(() => {
 }, 7000);
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
-const apiKeys = { ais: null, intel: null, sat: null };
+const AIS_KEY = 'dd6de9998da4846595ad14082e354b9b07dd3a3a';
+const apiKeys = { intel: null, sat: null };
 function applyKey(t) {
   const v = document.getElementById(t+'-key').value.trim();
   if (!v) return;
@@ -490,6 +490,122 @@ function nowUTC() {
   const n = new Date(); const p = v=>String(v).padStart(2,'0');
   return `${p(n.getUTCHours())}:${p(n.getUTCMinutes())} UTC`;
 }
+
+// ─── AISstream WebSocket ──────────────────────────────────────────────────────
+const liveShips = new Map(); // MMSI -> ship data
+const liveLayer = L.layerGroup().addTo(map);
+let aisWs = null;
+let aisReconnectTimer = null;
+
+const AIS_BOXES = [
+  // Red Sea / Gulf of Aden / Persian Gulf
+  [[10, 32], [32, 65]],
+  // Taiwan Strait / South China Sea / East China Sea
+  [[-5, 105], [36, 135]],
+  // Black Sea / Eastern Mediterranean
+  [[30, 15], [48, 42]],
+  // Korean Peninsula / Japan Sea
+  [[33, 124], [42, 133]],
+  // Indian Ocean shipping lanes
+  [[-10, 55], [25, 80]],
+  // North Atlantic / Europe
+  [[48, -15], [62, 10]],
+];
+
+function connectAIS() {
+  if (aisWs) { try { aisWs.close(); } catch(e){} }
+  aisWs = new WebSocket('wss://stream.aisstream.io/v0/stream');
+
+  aisWs.onopen = () => {
+    aisWs.send(JSON.stringify({ APIKey: AIS_KEY, BoundingBoxes: AIS_BOXES }));
+    const el = document.getElementById('ais-status');
+    el.textContent = 'LIVE'; el.className = 'api-stat on';
+    addFeed(nowUTC(),'AIS-WS','low','ALL','AISstream WebSocket 已連線，接收即時船位資料…');
+  };
+
+  aisWs.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      const meta = msg.MetaData;
+      if (!meta) return;
+      const pos = msg.Message?.PositionReport || msg.Message?.StandardClassBPositionReport;
+      if (!pos) return;
+      const mmsi = String(meta.MMSI);
+      const lat = meta.latitude;
+      const lng = meta.longitude;
+      if (!lat || !lng || lat === 0 && lng === 0) return;
+
+      const ship = {
+        mmsi,
+        name: (meta.ShipName || `MMSI ${mmsi}`).trim(),
+        lat, lng,
+        heading: pos.TrueHeading < 360 ? pos.TrueHeading : (pos.Cog || 0),
+        speed: ((pos.Sog || 0) / 10).toFixed(1),
+        navStatus: pos.NavigationalStatus ?? 15,
+        updated: Date.now(),
+      };
+      liveShips.set(mmsi, ship);
+      updateLiveMarker(ship);
+      document.getElementById('ais-live-count').textContent = `${liveShips.size} vessels`;
+    } catch(e) {}
+  };
+
+  aisWs.onerror = () => {
+    const el = document.getElementById('ais-status');
+    el.textContent = '錯誤'; el.className = 'api-stat';
+  };
+
+  aisWs.onclose = () => {
+    const el = document.getElementById('ais-status');
+    el.textContent = '重連中…'; el.className = 'api-stat';
+    aisReconnectTimer = setTimeout(connectAIS, 5000);
+  };
+}
+
+const liveMarkers = new Map();
+function updateLiveMarker(ship) {
+  const col = '#00aaff';
+  const rot = ship.heading || 0;
+  const html = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+    <g transform="rotate(${rot},12,12)">
+      <polygon points="12,3 15,19 12,16 9,19" fill="${col}" opacity=".8"/>
+    </g></svg>`;
+  const icon = L.divIcon({ html, iconSize:[16,16], iconAnchor:[8,8], className:'' });
+  const popup = `<div style="min-width:160px;font-size:10px;">
+    <div style="color:#00aaff;letter-spacing:2px;margin-bottom:5px;">${ship.name}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;">
+      <span style="color:var(--muted)">MMSI</span><span>${ship.mmsi}</span>
+      <span style="color:var(--muted)">SPEED</span><span>${ship.speed} kn</span>
+      <span style="color:var(--muted)">HDG</span><span>${Math.round(ship.heading)}°</span>
+      <span style="color:var(--muted)">POS</span><span>${ship.lat.toFixed(2)}, ${ship.lng.toFixed(2)}</span>
+    </div>
+  </div>`;
+  if (liveMarkers.has(ship.mmsi)) {
+    const m = liveMarkers.get(ship.mmsi);
+    m.setLatLng([ship.lat, ship.lng]);
+    m.setIcon(icon);
+    m.setPopupContent(popup);
+  } else {
+    const m = L.marker([ship.lat, ship.lng], { icon }).bindPopup(popup);
+    m.addTo(liveLayer);
+    liveMarkers.set(ship.mmsi, m);
+  }
+}
+
+// Purge ships not updated in 10 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [mmsi, ship] of liveShips) {
+    if (ship.updated < cutoff) {
+      liveShips.delete(mmsi);
+      if (liveMarkers.has(mmsi)) {
+        liveLayer.removeLayer(liveMarkers.get(mmsi));
+        liveMarkers.delete(mmsi);
+      }
+    }
+  }
+  document.getElementById('ais-live-count').textContent = `${liveShips.size} vessels`;
+}, 60000);
 
 // ─── Map ──────────────────────────────────────────────────────────────────────
 const map = L.map('map', { center:[20,10], zoom:2, zoomControl:true, attributionControl:false });
@@ -1035,6 +1151,7 @@ renderRoutes();
 renderConflictList();
 renderFeed();
 setInterval(simShips, 4000);
+connectAIS();
 </script>
 </body>
 </html>
