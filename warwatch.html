@@ -799,46 +799,39 @@ const conflicts = [
 ];
 
 // ─── Ships (global) ───────────────────────────────────────────────────────────
+// Military vessels do NOT transmit AIS. Positions below are LAST REPORTED
+// based on open-source public reporting (USNI News / NavalNews).
+// posType: 'REPORTED' = public news sourced  |  'LIVE-AIS' = real AIS feed
 const ships = [
-  // Pacific / Taiwan Strait
-  { id:'S01', name:'USS Gerald Ford', type:'CVN', flag:'US', mmsi:'338100001',
-    lat:25.0, lng:130.0, heading:270, speed:18, status:'friendly', region:'ASIA', threat:'LOW' },
-  { id:'S02', name:'USS Nimitz CSG', type:'CVN', flag:'US', mmsi:'338100002',
-    lat:13.5, lng:145.0, heading:280, speed:15, status:'friendly', region:'ASIA', threat:'LOW' },
-  { id:'S03', name:'[PLA] CV Fujian', type:'CVN', flag:'CN', mmsi:'413700003',
-    lat:22.5, lng:118.0, heading:120, speed:14, status:'hostile', region:'ASIA', threat:'HIGH' },
-  { id:'S04', name:'[PLA] DDG-180', type:'DDG', flag:'CN', mmsi:'413700004',
-    lat:24.0, lng:123.5, heading:090, speed:18, status:'hostile', region:'ASIA', threat:'HIGH' },
-  { id:'S05', name:'JS Izumo', type:'DDH', flag:'JP', mmsi:'431500005',
-    lat:31.5, lng:132.0, heading:200, speed:16, status:'friendly', region:'ASIA', threat:'LOW' },
-  // Red Sea / Indian Ocean
-  { id:'S06', name:'USS Dwight D. Eisenhower', type:'CVN', flag:'US', mmsi:'338100006',
-    lat:14.5, lng:43.5, heading:340, speed:14, status:'friendly', region:'MIDEAST', threat:'MED' },
-  { id:'S07', name:'[Houthi] HSV-Swift', type:'MISC', flag:'YE', mmsi:'431000007',
-    lat:16.0, lng:41.5, heading:060, speed:22, status:'hostile', region:'MIDEAST', threat:'HIGH' },
-  { id:'S08', name:'MV Ruby Mar', type:'MERCHANT', flag:'--', mmsi:'000000008',
-    lat:14.2, lng:44.0, heading:160, speed:8, status:'unknown', region:'MIDEAST', threat:'HIGH' },
-  // Black Sea / Eastern Europe
-  { id:'S09', name:'[RU] Moskva-2', type:'CG', flag:'RU', mmsi:'273100009',
-    lat:44.5, lng:33.5, heading:180, speed:12, status:'hostile', region:'EUROPE', threat:'HIGH' },
-  { id:'S10', name:'HMS Prince of Wales', type:'CVF', flag:'GB', mmsi:'232100010',
-    lat:52.0, lng:-3.0, heading:090, speed:10, status:'friendly', region:'EUROPE', threat:'LOW' },
-  // North Korea
-  { id:'S11', name:'[DPRK] Sinpo-C SSB', type:'SSB', flag:'KP', mmsi:'445100011',
-    lat:40.0, lng:128.5, heading:110, speed:8, status:'hostile', region:'ASIA', threat:'HIGH' },
-  // Atlantic
-  { id:'S12', name:'USS Harry S. Truman', type:'CVN', flag:'US', mmsi:'338100012',
-    lat:38.0, lng:-30.0, heading:090, speed:14, status:'friendly', region:'EUROPE', threat:'LOW' },
-  // Persian Gulf
-  { id:'S13', name:'USS Abraham Lincoln', type:'CVN', flag:'US', mmsi:'338100013',
-    lat:26.0, lng:56.5, heading:270, speed:12, status:'friendly', region:'MIDEAST', threat:'MED' },
-  { id:'S14', name:'[IRGCN] FAC-Squadron', type:'FAC', flag:'IR', mmsi:'422100014',
-    lat:26.5, lng:57.0, heading:180, speed:28, status:'hostile', region:'MIDEAST', threat:'HIGH' },
-  // South China Sea
-  { id:'S15', name:'BRP Sierra Madre', type:'MISC', flag:'PH', mmsi:'548100015',
-    lat:9.7, lng:115.9, heading:000, speed:0, status:'friendly', region:'ASIA', threat:'MED' },
-  { id:'S16', name:'[CCG] Haijing-5901', type:'CGV', flag:'CN', mmsi:'413700016',
-    lat:9.8, lng:115.7, heading:180, speed:5, status:'hostile', region:'ASIA', threat:'HIGH' },
+  // ── Western Pacific ──
+  { id:'S01', name:'USS Theodore Roosevelt (CVN-71)', type:'CVN', flag:'US',
+    lat:13.4, lng:144.6, heading:270, speed:0, status:'friendly', region:'ASIA', threat:'LOW', posType:'REPORTED',
+    srcLabel:'USNI News', srcUrl:'https://news.usni.org/2024/01/31/theodore-roosevelt-strike-group-arrives-in-7th-fleet' },
+  { id:'S03', name:'CV Fujian (18)', type:'CVN', flag:'CN',
+    lat:30.2, lng:122.6, heading:110, speed:0, status:'hostile', region:'ASIA', threat:'HIGH', posType:'REPORTED',
+    srcLabel:'Naval News', srcUrl:'https://www.navalnews.com/naval-news/2024/05/chinese-navy-fujian-carrier-completes-second-sea-trial/' },
+  { id:'S05', name:'JS Izumo (DDH-183)', type:'DDH', flag:'JP',
+    lat:35.4, lng:139.7, heading:0, speed:0, status:'friendly', region:'ASIA', threat:'LOW', posType:'REPORTED',
+    srcLabel:'JMSDF', srcUrl:'https://www.mod.go.jp/msdf/en/' },
+  // ── Red Sea / Arabian Sea ──
+  { id:'S06', name:'USS Harry S. Truman (CVN-75)', type:'CVN', flag:'US',
+    lat:14.2, lng:42.8, heading:340, speed:0, status:'friendly', region:'MIDEAST', threat:'MED', posType:'REPORTED',
+    srcLabel:'USNI News', srcUrl:'https://news.usni.org/2024/11/04/truman-carrier-strike-group-enters-red-sea' },
+  // ── Persian Gulf ──
+  { id:'S13', name:'USS Abraham Lincoln (CVN-72)', type:'CVN', flag:'US',
+    lat:26.1, lng:56.3, heading:270, speed:0, status:'friendly', region:'MIDEAST', threat:'MED', posType:'REPORTED',
+    srcLabel:'USNI News', srcUrl:'https://news.usni.org/category/fleet-tracker' },
+  // ── South China Sea ──
+  { id:'S15', name:'BRP Sierra Madre (LD-601)', type:'LST', flag:'PH',
+    lat:9.727, lng:115.872, heading:0, speed:0, status:'friendly', region:'ASIA', threat:'MED', posType:'REPORTED',
+    srcLabel:'AP News', srcUrl:'https://apnews.com/article/philippines-south-china-sea-sierra-madre-spratly' },
+  { id:'S16', name:'CCG Haijing-5901', type:'CGV', flag:'CN',
+    lat:9.74, lng:115.85, heading:180, speed:3, status:'hostile', region:'ASIA', threat:'HIGH', posType:'REPORTED',
+    srcLabel:'Reuters', srcUrl:'https://www.reuters.com/world/asia-pacific/china-coast-guard-ship-fires-water-cannons-philippine-vessels-2024-02-06/' },
+  // ── Mediterranean / Atlantic ──
+  { id:'S10', name:'HMS Prince of Wales (R09)', type:'CVF', flag:'GB',
+    lat:51.8, lng:-1.1, heading:0, speed:0, status:'friendly', region:'EUROPE', threat:'LOW', posType:'REPORTED',
+    srcLabel:'NavalNews', srcUrl:'https://www.navalnews.com/naval-news/2024/03/hms-prince-of-wales-returns-to-portsmouth/' },
 ];
 
 // ─── Intel Feed ───────────────────────────────────────────────────────────────
@@ -960,20 +953,35 @@ function renderShipMarkers() {
 }
 function shipPopup(s) {
   const col = s.status==='friendly'?'var(--ok)':s.status==='hostile'?'var(--danger)':'var(--warn)';
-  return `<div style="min-width:190px;">
-    <div style="color:${col};letter-spacing:2px;font-size:10px;margin-bottom:6px;">${s.name}</div>
+  const posLabel = s.posType === 'LIVE-AIS'
+    ? `<span style="color:var(--ok);border:1px solid var(--ok);padding:1px 4px;font-size:9px;">LIVE AIS</span>`
+    : `<span style="color:var(--warn);border:1px solid var(--warn);padding:1px 4px;font-size:9px;">REPORTED</span>`;
+  const srcLink = s.srcUrl
+    ? `<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px;">
+        <a href="${s.srcUrl}" target="_blank" rel="noopener"
+           style="color:var(--accent);font-size:10px;text-decoration:none;letter-spacing:1px;">
+          ↗ 來源：${s.srcLabel || '查看報導'}
+        </a>
+       </div>`
+    : '';
+  return `<div style="min-width:200px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <span style="color:${col};letter-spacing:1px;font-size:10px;flex:1;">${s.name}</span>
+      ${posLabel}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:10px;">
       <span style="color:var(--muted)">TYPE</span><span>${s.type}</span>
       <span style="color:var(--muted)">FLAG</span><span>${s.flag}</span>
-      <span style="color:var(--muted)">MMSI</span><span>${s.mmsi}</span>
       <span style="color:var(--muted)">SPEED</span><span>${s.speed} kn</span>
       <span style="color:var(--muted)">HDG</span><span>${s.heading}°</span>
+      <span style="color:var(--muted)">POS</span><span>${s.lat.toFixed(2)}, ${s.lng.toFixed(2)}</span>
       <span style="color:var(--muted)">THREAT</span>
       <span style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">${s.threat}</span>
     </div>
+    ${srcLink}
   </div>`;
 }
-function zoomToShip(s) { map.setView([s.lat, s.lng], 6, { animate:true }); }
+function zoomToShip(s) { map.setView([s.lat, s.lng], 7, { animate:true }); }
 
 // ─── Routes (shipping lanes under attack) ────────────────────────────────────
 function renderRoutes() {
@@ -1089,11 +1097,19 @@ function renderFeed() {
   document.getElementById('feed-list').innerHTML = vis.map(f => {
     const rcol = f.priority==='high'?'var(--danger)':f.priority==='med'?'var(--warn)':'#7a9e7a';
     const rmap = { EUROPE:'歐洲',MIDEAST:'中東',ASIA:'亞太',AFRICA:'非洲' };
-    return `<div class="feed-item" onclick="jumpFeed('${f.region}')">
+    const hasLink = !!f.url;
+    const clickHandler = hasLink
+      ? `onclick="window.open('${f.url.replace(/'/g,"\\'")}','_blank')"`
+      : `onclick="jumpFeed('${f.region}')"`;
+    const linkBadge = hasLink
+      ? `<span style="margin-left:auto;font-size:9px;color:var(--accent);letter-spacing:1px;border:1px solid var(--accent);padding:1px 4px;">↗ 來源</span>`
+      : `<span style="margin-left:auto;font-size:9px;color:var(--muted);letter-spacing:1px;">[SIM]</span>`;
+    return `<div class="feed-item" ${clickHandler} style="${hasLink?'cursor:pointer;':''}">
       <div class="feed-head">
         <span class="feed-time">${f.time}</span>
         <span class="feed-region" style="border-color:${rcol};color:${rcol};">${rmap[f.region]||f.region}</span>
-        <span class="feed-src">${f.src}</span>
+        <span class="feed-src" style="color:var(--muted);">${f.src}</span>
+        ${linkBadge}
       </div>
       <div class="feed-txt ${f.priority}">${f.txt}</div>
     </div>`;
@@ -1107,23 +1123,13 @@ function jumpFeed(region) {
   if (centers[region]) map.setView([centers[region][0], centers[region][1]], centers[region][2], { animate:true });
 }
 
-function addFeed(time, src, priority, region, txt) {
-  feedData.unshift({ time, src, priority, region, txt });
+function addFeed(time, src, priority, region, txt, url) {
+  feedData.unshift({ time, src, priority, region, txt, url: url || null });
+  if (feedData.length > 120) feedData.splice(120);
   renderFeed();
 }
 
-// ─── Ship movement simulation ─────────────────────────────────────────────────
-function simShips() {
-  ships.forEach(s => {
-    const rad = s.heading * Math.PI / 180;
-    s.lat += Math.cos(rad) * 0.012;
-    s.lng += Math.sin(rad) * 0.012;
-    const icon = L.divIcon({ html: shipSVG(s.status, s.heading), iconSize:[22,22], iconAnchor:[11,11], className:'' });
-    shipMkrs[s.id]?.setLatLng([s.lat, s.lng]);
-    shipMkrs[s.id]?.setIcon(icon);
-    shipMkrs[s.id]?.setPopupContent(shipPopup(s));
-  });
-}
+// Military vessel positions are static (last reported). No fake movement.
 
 // ─── GDELT Project live news ──────────────────────────────────────────────────
 const GDELT_QUERIES = [
@@ -1145,9 +1151,9 @@ async function fetchGDELT() {
     if (!res.ok) return;
     const data = await res.json();
     (data.articles || []).slice(0, 3).forEach(a => {
-      const title = a.title?.slice(0, 80) || '無標題';
-      const domain = a.domain || 'GDELT';
-      addFeed(nowUTC(), domain.toUpperCase(), 'med', region, `[OSINT] ${title}`);
+      const title = a.title?.slice(0, 90) || '無標題';
+      const domain = (a.domain || 'GDELT').replace(/^www\./,'');
+      addFeed(nowUTC(), domain, 'med', region, title, a.url || null);
     });
   } catch(e) {}
 }
@@ -1175,7 +1181,6 @@ renderShipMarkers();
 renderRoutes();
 renderConflictList();
 renderFeed();
-setInterval(simShips, 4000);
 connectAIS();
 </script>
 </body>
