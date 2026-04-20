@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WARWATCH — 戰區情報系統</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg: #0a0d12;
+      --panel: #0f1318;
+      --border: #1e2a38;
+      --accent: #00c8ff;
+      --danger: #ff3b3b;
+      --warn: #ffaa00;
+      --ok: #00e676;
+      --text: #c9d8e8;
+      --muted: #4a6070;
+      --header: #060a0f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--header);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent);
+    }
+
+    .logo span { color: var(--danger); }
+
+    .header-status {
+      display: flex;
+      gap: 20px;
+      margin-left: auto;
+      align-items: center;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 6px var(--ok);
+      animation: pulse 2s infinite;
+    }
+
+    .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+    .dot.danger { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .utc-clock {
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    /* ── API Key Banner ── */
+    #api-banner {
+      background: #0d1520;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    #api-banner label {
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .api-input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .api-input-group input {
+      background: #0a1018;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 4px 10px;
+      width: 260px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .api-input-group input:focus { border-color: var(--accent); }
+    .api-input-group input::placeholder { color: var(--muted); }
+
+    .btn-sm {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-sm:hover { background: rgba(0,200,255,0.1); }
+
+    .api-status {
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border: 1px solid var(--muted);
+      color: var(--muted);
+    }
+
+    .api-status.connected {
+      border-color: var(--ok);
+      color: var(--ok);
+    }
+
+    /* ── Main Layout ── */
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr 300px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar common ── */
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar.right {
+      border-right: none;
+      border-left: 1px solid var(--border);
+    }
+
+    .panel-header {
+      background: var(--header);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 12px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .panel-header .count {
+      margin-left: auto;
+      background: rgba(0,200,255,0.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 10px;
+      padding: 1px 6px;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: var(--bg); }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* ── Ship cards ── */
+    .ship-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--muted);
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .ship-card:hover { background: #0d1520; border-left-color: var(--accent); }
+    .ship-card.selected { border-left-color: var(--accent); background: #0d1520; }
+    .ship-card.hostile { border-left-color: var(--danger); }
+    .ship-card.unknown { border-left-color: var(--warn); }
+
+    .ship-name {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .ship-meta {
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .ship-meta span { display: flex; justify-content: space-between; }
+
+    .tag {
+      display: inline-block;
+      font-size: 9px;
+      letter-spacing: 1px;
+      padding: 1px 5px;
+      border: 1px solid currentColor;
+      margin-right: 4px;
+    }
+
+    .tag.friendly { color: var(--ok); }
+    .tag.hostile { color: var(--danger); }
+    .tag.unknown { color: var(--warn); }
+    .tag.neutral { color: var(--muted); }
+
+    /* ── Map ── */
+    #map {
+      flex: 1;
+      background: #0a0e14;
+    }
+
+    /* Leaflet dark override */
+    .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.75) saturate(0.6); }
+
+    .leaflet-control-zoom a {
+      background: var(--panel) !important;
+      color: var(--accent) !important;
+      border-color: var(--border) !important;
+    }
+
+    /* Custom map popup */
+    .leaflet-popup-content-wrapper {
+      background: var(--panel);
+      border: 1px solid var(--accent);
+      border-radius: 0;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .leaflet-popup-tip { background: var(--accent); }
+
+    /* ── Intel Feed ── */
+    .feed-item {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 6px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .feed-item:last-child { border-bottom: none; }
+
+    .feed-time {
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 3px;
+      letter-spacing: 1px;
+    }
+
+    .feed-source {
+      font-size: 10px;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .feed-text { color: var(--text); }
+
+    .feed-text.high { color: var(--danger); }
+    .feed-text.med { color: var(--warn); }
+    .feed-text.low { color: var(--ok); }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,200,255,0.08); }
+    .filter-btn.hostile.active { border-color: var(--danger); color: var(--danger); background: rgba(255,59,59,0.08); }
+    .filter-btn.unknown.active { border-color: var(--warn); color: var(--warn); background: rgba(255,170,0,0.08); }
+
+    /* ── Map controls ── */
+    .map-controls {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 500;
+      display: flex;
+      gap: 8px;
+    }
+
+    .map-ctrl-btn {
+      background: rgba(10,13,18,0.9);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .map-ctrl-btn.active { border-color: var(--accent); color: var(--accent); }
+    .map-ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Detail panel (bottom of left sidebar) ── */
+    .detail-panel {
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 12px;
+      border-bottom: 1px solid #0d1520;
+      font-size: 11px;
+    }
+
+    .detail-row .key { color: var(--muted); letter-spacing: 1px; }
+    .detail-row .val { color: var(--text); text-align: right; }
+
+    /* ── Search box ── */
+    .search-box {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 5px 8px;
+      outline: none;
+    }
+
+    .search-box input:focus { border-color: var(--accent); }
+
+    /* ── Threat meter ── */
+    .threat-meter {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .threat-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .threat-bar-wrap {
+      height: 6px;
+      background: #0d1520;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .threat-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--ok), var(--warn), var(--danger));
+      transition: width 1s;
+    }
+
+    .threat-value {
+      font-size: 11px;
+      color: var(--warn);
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    /* Custom Leaflet icons */
+    .ship-icon {
+      background: none;
+      border: none;
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">WAR<span>WATCH</span></div>
+  <div class="status-pill"><div class="dot"></div> SYSTEM ONLINE</div>
+  <div class="status-pill"><div class="dot warn"></div> THREAT ELEVATED</div>
+  <div class="header-status">
+    <div class="status-pill">AIS FEED: <strong style="color:var(--ok);margin-left:4px">LIVE</strong></div>
+    <div class="utc-clock" id="clock">-- UTC</div>
+  </div>
+</header>
+
+<!-- API Key Banner -->
+<div id="api-banner">
+  <label>API KEYS</label>
+
+  <div class="api-input-group">
+    <label style="color:var(--muted);font-size:10px;letter-spacing:1px;">AIS / VESSEL</label>
+    <input type="password" id="ais-key" placeholder="輸入 AIS API Key…" autocomplete="off" />
+    <button class="btn-sm" onclick="applyKey('ais')">套用</button>
+    <span class="api-status" id="ais-status">未連線</span>
+  </div>
+
+  <div class="api-input-group" style="margin-left:16px;">
+    <label style="color:var(--muted);font-size:10px;letter-spacing:1px;">情報來源</label>
+    <input type="password" id="intel-key" placeholder="輸入 Intelligence Feed API Key…" autocomplete="off" />
+    <button class="btn-sm" onclick="applyKey('intel')">套用</button>
+    <span class="api-status" id="intel-status">未連線</span>
+  </div>
+
+  <div class="api-input-group" style="margin-left:16px;">
+    <label style="color:var(--muted);font-size:10px;letter-spacing:1px;">衛星圖層</label>
+    <input type="password" id="sat-key" placeholder="衛星圖層 API Key…" autocomplete="off" />
+    <button class="btn-sm" onclick="applyKey('sat')">套用</button>
+    <span class="api-status" id="sat-status">未連線</span>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="main">
+
+  <!-- Left: Ship list -->
+  <div class="sidebar">
+    <div class="panel-header">
+      ◈ 艦艇動向
+      <span class="count" id="ship-count">0</span>
+    </div>
+
+    <div class="threat-meter">
+      <div class="threat-label">THREAT INDEX</div>
+      <div class="threat-bar-wrap">
+        <div class="threat-bar" id="threat-bar" style="width:62%"></div>
+      </div>
+      <div class="threat-value" id="threat-val">62 / 100 — ELEVATED</div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="ship-search" placeholder="搜尋艦艇名稱 / MMSI…" oninput="filterShips()" />
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-f="all" onclick="setFilter(this,'all')">ALL</button>
+      <button class="filter-btn friendly active" data-f="friendly" onclick="setFilter(this,'friendly')">FRIENDLY</button>
+      <button class="filter-btn hostile active" data-f="hostile" onclick="setFilter(this,'hostile')">HOSTILE</button>
+      <button class="filter-btn unknown active" data-f="unknown" onclick="setFilter(this,'unknown')">UNKNOWN</button>
+    </div>
+
+    <div class="panel-body" id="ship-list"></div>
+
+    <div class="detail-panel" id="detail-panel">
+      <div class="panel-header" style="font-size:10px;">◈ 選取艦艇詳情</div>
+      <div id="detail-body">
+        <div style="padding:12px;color:var(--muted);font-size:11px;text-align:center;">點擊艦艇以查看詳情</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Map -->
+  <div style="position:relative;overflow:hidden;">
+    <div id="map" style="width:100%;height:100%;"></div>
+    <div class="map-controls">
+      <button class="map-ctrl-btn active" id="btn-vessels" onclick="toggleLayer('vessels',this)">艦艇</button>
+      <button class="map-ctrl-btn active" id="btn-zones" onclick="toggleLayer('zones',this)">禁區</button>
+      <button class="map-ctrl-btn active" id="btn-routes" onclick="toggleLayer('routes',this)">航線</button>
+      <button class="map-ctrl-btn" id="btn-sat" onclick="toggleSat(this)">衛星圖層</button>
+    </div>
+  </div>
+
+  <!-- Right: Intel Feed -->
+  <div class="sidebar right">
+    <div class="panel-header">
+      ◈ 情報 FEED
+      <span class="count" id="feed-count">0</span>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="setFeedFilter(this,'all')">ALL</button>
+      <button class="filter-btn hostile active" onclick="setFeedFilter(this,'high')">HIGH</button>
+      <button class="filter-btn unknown active" onclick="setFeedFilter(this,'med')">MED</button>
+      <button class="filter-btn active" onclick="setFeedFilter(this,'low')">LOW</button>
+    </div>
+
+    <div class="panel-body" id="feed-list"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── Clock ───────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toUTCString().split(' ').slice(4,5)[0] + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── API Key handling ─────────────────────────────────────────────────────────
+const apiKeys = { ais: null, intel: null, sat: null };
+
+function applyKey(type) {
+  const val = document.getElementById(type + '-key').value.trim();
+  if (!val) return;
+  apiKeys[type] = val;
+  const el = document.getElementById(type + '-status');
+  el.textContent = '已連線';
+  el.className = 'api-status connected';
+  if (type === 'ais') initAISFeed();
+  if (type === 'intel') initIntelFeed();
+  if (type === 'sat') initSatLayer();
+}
+
+// ─── Map Init ─────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [25, 123],
+  zoom: 5,
+  zoomControl: true,
+  attributionControl: false
+});
+
+const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+}).addTo(map);
+
+let satLayer = null;
+
+function initSatLayer() {
+  if (!apiKeys.sat) return;
+  if (satLayer) map.removeLayer(satLayer);
+  satLayer = L.tileLayer(
+    `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${apiKeys.sat}`,
+    { maxZoom: 18, tileSize: 512, zoomOffset: -1 }
+  );
+}
+
+function toggleSat(btn) {
+  if (!satLayer) {
+    alert('請先輸入衛星圖層 API Key（Mapbox Access Token）');
+    return;
+  }
+  if (map.hasLayer(satLayer)) {
+    map.removeLayer(satLayer);
+    btn.classList.remove('active');
+  } else {
+    satLayer.addTo(map);
+    btn.classList.add('active');
+  }
+}
+
+// ─── Layer groups ─────────────────────────────────────────────────────────────
+const layers = {
+  vessels: L.layerGroup().addTo(map),
+  zones:   L.layerGroup().addTo(map),
+  routes:  L.layerGroup().addTo(map),
+};
+
+const layerVisible = { vessels: true, zones: true, routes: true };
+
+function toggleLayer(name, btn) {
+  if (layerVisible[name]) {
+    map.removeLayer(layers[name]);
+    layerVisible[name] = false;
+    btn.classList.remove('active');
+  } else {
+    layers[name].addTo(map);
+    layerVisible[name] = true;
+    btn.classList.add('active');
+  }
+}
+
+// ─── Demo Ship Data ────────────────────────────────────────────────────────────
+const ships = [
+  { id:'S001', name:'USS Ronald Reagan', type:'CARRIER', flag:'US', mmsi:'338234567',
+    lat:26.3, lng:127.8, heading:045, speed:18.2, status:'friendly',
+    course:'北上', last:'00:12 UTC', threat:'LOW' },
+  { id:'S002', name:'DDG Kongo', type:'DESTROYER', flag:'JP', mmsi:'431012345',
+    lat:28.1, lng:129.2, heading:310, speed:22.5, status:'friendly',
+    course:'西北', last:'00:09 UTC', threat:'LOW' },
+  { id:'S003', name:'[UNIDENT] CV-16', type:'CARRIER', flag:'??', mmsi:'413456789',
+    lat:24.6, lng:122.1, heading:120, speed:14.0, status:'hostile',
+    course:'東南', last:'00:05 UTC', threat:'HIGH' },
+  { id:'S004', name:'[UNIDENT] FF-054', type:'FRIGATE', flag:'??', mmsi:'413556700',
+    lat:23.8, lng:120.5, heading:090, speed:16.1, status:'hostile',
+    course:'東行', last:'00:03 UTC', threat:'HIGH' },
+  { id:'S005', name:'MV Evergreen Star', type:'MERCHANT', flag:'TW', mmsi:'416123456',
+    lat:25.1, lng:121.3, heading:180, speed:12.0, status:'neutral',
+    course:'南下', last:'00:15 UTC', threat:'NONE' },
+  { id:'S006', name:'[SHADOW] UNK-019', type:'UNKNOWN', flag:'??', mmsi:'000000019',
+    lat:22.9, lng:118.6, heading:060, speed:8.5, status:'unknown',
+    course:'北東', last:'23:58 UTC', threat:'MED' },
+  { id:'S007', name:'JMSDF Atago', type:'DESTROYER', flag:'JP', mmsi:'431087654',
+    lat:30.2, lng:131.5, heading:200, speed:19.0, status:'friendly',
+    course:'南下', last:'00:11 UTC', threat:'LOW' },
+  { id:'S008', name:'[UNIDENT] DDG-173', type:'DESTROYER', flag:'??', mmsi:'413600123',
+    lat:27.4, lng:125.9, heading:270, speed:20.3, status:'hostile',
+    course:'西行', last:'00:01 UTC', threat:'HIGH' },
+];
+
+// ─── Ship icons ───────────────────────────────────────────────────────────────
+function makeShipSVG(status, heading) {
+  const color = status === 'friendly' ? '#00e676'
+              : status === 'hostile'  ? '#ff3b3b'
+              : status === 'unknown'  ? '#ffaa00'
+              : '#4a6070';
+  const rot = heading || 0;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <g transform="rotate(${rot},12,12)">
+      <polygon points="12,2 16,20 12,17 8,20" fill="${color}" opacity="0.9"/>
+      <polygon points="12,2 16,20 12,17 8,20" fill="none" stroke="${color}" stroke-width="1"/>
+    </g>
+    <circle cx="12" cy="12" r="5" fill="none" stroke="${color}" stroke-width="0.5" opacity="0.4"/>
+  </svg>`;
+}
+
+const shipMarkers = {};
+
+function renderShipMarkers() {
+  layers.vessels.clearLayers();
+  ships.forEach(s => {
+    const icon = L.divIcon({
+      html: makeShipSVG(s.status, s.heading),
+      iconSize: [24, 24], iconAnchor: [12, 12],
+      className: 'ship-icon'
+    });
+    const m = L.marker([s.lat, s.lng], { icon })
+      .bindPopup(buildPopup(s))
+      .on('click', () => selectShip(s.id));
+    m.addTo(layers.vessels);
+    shipMarkers[s.id] = m;
+  });
+}
+
+function buildPopup(s) {
+  return `<div style="min-width:180px;">
+    <div style="color:var(--accent);letter-spacing:2px;font-size:11px;margin-bottom:6px;">${s.name}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:11px;">
+      <span style="color:var(--muted)">TYPE</span><span>${s.type}</span>
+      <span style="color:var(--muted)">MMSI</span><span>${s.mmsi}</span>
+      <span style="color:var(--muted)">SPEED</span><span>${s.speed} kn</span>
+      <span style="color:var(--muted)">HDG</span><span>${s.heading}°</span>
+      <span style="color:var(--muted)">COURSE</span><span>${s.course}</span>
+      <span style="color:var(--muted)">THREAT</span>
+      <span style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">${s.threat}</span>
+    </div>
+  </div>`;
+}
+
+// ─── Exclusion Zones ──────────────────────────────────────────────────────────
+function renderZones() {
+  layers.zones.clearLayers();
+  const zones = [
+    { lat: 24.5, lng: 122.0, r: 80000, label: 'ZONE ALPHA — RESTRICTED' },
+    { lat: 26.0, lng: 120.5, r: 50000, label: 'ZONE BRAVO — MONITORING' },
+  ];
+  zones.forEach(z => {
+    L.circle([z.lat, z.lng], {
+      radius: z.r,
+      color: '#ff3b3b',
+      fillColor: '#ff3b3b',
+      fillOpacity: 0.06,
+      weight: 1,
+      dashArray: '6,4'
+    }).bindTooltip(z.label, { className: 'leaflet-tooltip', direction: 'center' })
+      .addTo(layers.zones);
+  });
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+function renderRoutes() {
+  layers.routes.clearLayers();
+  const routes = [
+    { points: [[26.3,127.8],[28.1,129.2],[30.2,131.5]], color: '#00e676' },
+    { points: [[24.6,122.1],[24.0,123.5],[23.5,125.0]], color: '#ff3b3b' },
+    { points: [[22.9,118.6],[23.5,120.0],[24.6,122.1]], color: '#ffaa00' },
+  ];
+  routes.forEach(r => {
+    L.polyline(r.points, {
+      color: r.color, weight: 1.5, opacity: 0.5, dashArray: '4,4'
+    }).addTo(layers.routes);
+  });
+}
+
+// ─── Ship List UI ─────────────────────────────────────────────────────────────
+let activeFilters = new Set(['friendly','hostile','unknown','neutral']);
+let searchQuery = '';
+let selectedShip = null;
+
+function renderShipList() {
+  const container = document.getElementById('ship-list');
+  const query = searchQuery.toLowerCase();
+  const visible = ships.filter(s => {
+    const matchFilter = activeFilters.has(s.status);
+    const matchSearch = !query ||
+      s.name.toLowerCase().includes(query) ||
+      s.mmsi.includes(query);
+    return matchFilter && matchSearch;
+  });
+
+  document.getElementById('ship-count').textContent = visible.length;
+  container.innerHTML = visible.map(s => `
+    <div class="ship-card ${s.status} ${selectedShip===s.id?'selected':''}"
+         id="card-${s.id}" onclick="selectShip('${s.id}')">
+      <div class="ship-name">
+        <span class="tag ${s.status}">${s.status.toUpperCase()}</span>
+        ${s.name}
+      </div>
+      <div class="ship-meta">
+        <span><span>TYPE: ${s.type}</span><span>FLAG: ${s.flag}</span></span>
+        <span><span>SPD: ${s.speed} kn</span><span>HDG: ${s.heading}°</span></span>
+        <span><span>COURSE: ${s.course}</span>
+          <span style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">
+            ⚠ ${s.threat}
+          </span>
+        </span>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function selectShip(id) {
+  selectedShip = id;
+  const s = ships.find(x => x.id === id);
+  if (!s) return;
+  renderShipList();
+  map.setView([s.lat, s.lng], 7, { animate: true });
+  shipMarkers[id]?.openPopup();
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-row"><span class="key">VESSEL</span><span class="val">${s.name}</span></div>
+    <div class="detail-row"><span class="key">TYPE</span><span class="val">${s.type}</span></div>
+    <div class="detail-row"><span class="key">FLAG</span><span class="val">${s.flag}</span></div>
+    <div class="detail-row"><span class="key">MMSI</span><span class="val">${s.mmsi}</span></div>
+    <div class="detail-row"><span class="key">POSITION</span><span class="val">${s.lat.toFixed(2)}N ${s.lng.toFixed(2)}E</span></div>
+    <div class="detail-row"><span class="key">HEADING</span><span class="val">${s.heading}°</span></div>
+    <div class="detail-row"><span class="key">SPEED</span><span class="val">${s.speed} kn</span></div>
+    <div class="detail-row"><span class="key">COURSE</span><span class="val">${s.course}</span></div>
+    <div class="detail-row"><span class="key">LAST UPDATE</span><span class="val">${s.last}</span></div>
+    <div class="detail-row"><span class="key">THREAT</span>
+      <span class="val" style="color:${s.threat==='HIGH'?'var(--danger)':s.threat==='MED'?'var(--warn)':'var(--ok)'}">
+        ${s.threat}
+      </span>
+    </div>`;
+}
+
+function setFilter(btn, f) {
+  if (f === 'all') {
+    const allActive = ['friendly','hostile','unknown','neutral'].every(x => activeFilters.has(x));
+    if (allActive) {
+      activeFilters.clear();
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    } else {
+      activeFilters = new Set(['friendly','hostile','unknown','neutral']);
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.add('active'));
+    }
+  } else {
+    if (activeFilters.has(f)) {
+      activeFilters.delete(f);
+      btn.classList.remove('active');
+    } else {
+      activeFilters.add(f);
+      btn.classList.add('active');
+    }
+  }
+  renderShipList();
+}
+
+function filterShips() {
+  searchQuery = document.getElementById('ship-search').value;
+  renderShipList();
+}
+
+// ─── Intel Feed ───────────────────────────────────────────────────────────────
+const feedData = [
+  { time:'00:14 UTC', source:'SIGINT-7', priority:'high',
+    text:'偵測到 CV-16 艦載機起飛準備動作，疑似戰備狀態' },
+  { time:'00:11 UTC', source:'HUMINT-R3', priority:'high',
+    text:'前進基地回報：近海岸疑似潛艦通氣管訊號' },
+  { time:'00:08 UTC', source:'OSINT-M', priority:'med',
+    text:'商業衛星影像顯示 3 艘不明艦艇離港，方位北偏東 25°' },
+  { time:'00:05 UTC', source:'AIS-LIVE', priority:'low',
+    text:'DDG Kongo 已進入監控區域北端，與預定航線吻合' },
+  { time:'00:03 UTC', source:'ELINT-4', priority:'high',
+    text:'電磁干擾訊號強度上升，頻段與 YJ-12 導引雷達吻合' },
+  { time:'23:59 UTC', source:'IMINT-2', priority:'med',
+    text:'Zone Alpha 內發現 2 艘高速艇，速度約 35 節' },
+  { time:'23:55 UTC', source:'AIS-LIVE', priority:'low',
+    text:'MV Evergreen Star 正常通過台灣海峽，航行路線無異常' },
+  { time:'23:50 UTC', source:'SIGINT-7', priority:'med',
+    text:'加密通訊量較昨日基準值上升 340%，疑似軍事協調中' },
+  { time:'23:44 UTC', source:'HUMINT-R1', priority:'high',
+    text:'港口目擊大量補給車輛進入海軍基地，疑備戰' },
+  { time:'23:38 UTC', source:'OSINT-M', priority:'low',
+    text:'社交媒體情報：軍事演習公告疑似掩蓋真實行動' },
+];
+
+let feedFilter = new Set(['high','med','low']);
+
+function setFeedFilter(btn, f) {
+  if (f === 'all') {
+    const allActive = ['high','med','low'].every(x => feedFilter.has(x));
+    if (allActive) {
+      feedFilter.clear();
+      btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    } else {
+      feedFilter = new Set(['high','med','low']);
+      btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.add('active'));
+    }
+  } else {
+    if (feedFilter.has(f)) {
+      feedFilter.delete(f);
+      btn.classList.remove('active');
+    } else {
+      feedFilter.add(f);
+      btn.classList.add('active');
+    }
+  }
+  renderFeed();
+}
+
+function renderFeed() {
+  const visible = feedData.filter(f => feedFilter.has(f.priority));
+  document.getElementById('feed-count').textContent = visible.length;
+  document.getElementById('feed-list').innerHTML = visible.map(f => `
+    <div class="feed-item">
+      <div class="feed-time">${f.time}</div>
+      <div class="feed-source" style="color:${f.priority==='high'?'var(--danger)':f.priority==='med'?'var(--warn)':'var(--ok)'}">
+        [${f.priority.toUpperCase()}] ${f.source}
+      </div>
+      <div class="feed-text ${f.priority}">${f.text}</div>
+    </div>`
+  ).join('');
+}
+
+// ─── Live simulation ──────────────────────────────────────────────────────────
+function simulateMovement() {
+  ships.forEach(s => {
+    const rad = s.heading * Math.PI / 180;
+    s.lat += Math.cos(rad) * 0.008;
+    s.lng += Math.sin(rad) * 0.008;
+  });
+  ships.forEach(s => {
+    const icon = L.divIcon({
+      html: makeShipSVG(s.status, s.heading),
+      iconSize: [24,24], iconAnchor: [12,12], className: 'ship-icon'
+    });
+    shipMarkers[s.id]?.setLatLng([s.lat, s.lng]);
+    shipMarkers[s.id]?.setIcon(icon);
+    shipMarkers[s.id]?.setPopupContent(buildPopup(s));
+  });
+  if (selectedShip) {
+    const s = ships.find(x => x.id === selectedShip);
+    if (s) {
+      document.querySelector(`#detail-body .detail-row:nth-child(5) .val`).textContent =
+        `${s.lat.toFixed(2)}N ${s.lng.toFixed(2)}E`;
+    }
+  }
+}
+
+// ─── AIS / Intel hooks (called when API key applied) ──────────────────────────
+function initAISFeed() {
+  // Placeholder: replace with real AIS API calls using apiKeys.ais
+  console.log('[WARWATCH] AIS key applied — connect to real AIS endpoint here.');
+  addFeedItem('00:00 UTC','SYS','low','AIS 資料來源已連線，等待即時資料…');
+}
+
+function initIntelFeed() {
+  console.log('[WARWATCH] Intel key applied — connect to intel endpoint here.');
+  addFeedItem('00:00 UTC','SYS','low','情報來源已連線，等待即時情報推送…');
+}
+
+function addFeedItem(time, source, priority, text) {
+  feedData.unshift({ time, source, priority, text });
+  renderFeed();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderShipMarkers();
+renderZones();
+renderRoutes();
+renderShipList();
+renderFeed();
+
+setInterval(simulateMovement, 3000);
+setInterval(() => {
+  const idx = Math.floor(Math.random() * feedData.length);
+  // Rotate feed to simulate live updates
+}, 15000);
+</script>
+</body>
+</html>
